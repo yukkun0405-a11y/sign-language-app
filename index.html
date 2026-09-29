@@ -222,7 +222,7 @@
 #panel-train .record-info{line-height:1.6;}
 #panel-train #sampleCounter{font-family:'Noto Sans JP',sans-serif;font-size:12px;}
 </style>
-</head>
+<style id="recognition-control-style">.recognition-control-card{margin:0 0 14px;padding:14px 15px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 5px 20px rgba(15,23,42,.05)}.recognition-control-main{display:flex;align-items:center;justify-content:space-between;gap:12px}.recognition-control-title{font-size:14px;font-weight:750;color:#172033}.recognition-control-sub{margin-top:3px;font-size:11px;color:#7a8799;line-height:1.5}.recognition-toggle{flex:0 0 auto;min-width:124px;border:0;border-radius:11px;padding:11px 14px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:750;cursor:pointer}.recognition-toggle.active{background:#e5484d}@media(max-width:520px){.recognition-control-main{align-items:stretch;flex-direction:column}.recognition-toggle{width:100%}}</style></head>
 <body>
 <div class="app">
   <header>
@@ -284,7 +284,8 @@
       </div>
     </div>
 
-    <!-- Result -->
+    <div class="recognition-control-card"><div class="recognition-control-main"><div><div class="recognition-control-title" id="recognitionStateText">認識は停止中</div><div class="recognition-control-sub">認識中に1つだけ結果を文章へ追加します</div></div><button class="recognition-toggle" id="recognitionToggle" onclick="toggleRecognition()">▶ 認識開始</button></div></div>
+<!-- Result -->
     <div class="section-card">
       <div class="section-header">
         <span class="section-label">認識結果</span>
@@ -756,6 +757,7 @@ function updatePrevWrists(hands){
 }
 
 function addRecognitionFrame(hands){
+  if(!recognitionEnabled) return;
   const handCount=(hands.left?1:0)+(hands.right?1:0);
 
   // Single-hand finger-letter recognition remains independent from motion ML.
@@ -767,7 +769,7 @@ function addRecognitionFrame(hands){
       if(r && r.label && r.label!=='—' && r.conf>=80){
         if(r.label===staticCandidate) staticCandidateFrames++;
         else { staticCandidate=r.label; staticCandidateFrames=1; }
-        if(staticCandidateFrames>=4 &&
+        if(staticCandidateFrames>=4 && !recognitionSessionAccepted &&
            (staticCandidate!==lastStaticAccepted || now-staticAcceptedAt>1200)){
           displayResult(staticCandidate,r.conf);
           lastStaticAccepted=staticCandidate;
@@ -819,8 +821,9 @@ async function runMotionPrediction(sequence){
       if(top.p>=MOTION_THRESHOLD){
         const now=Date.now();
         // Accept a new sign once; a repeated sign becomes available again after a short reset.
-        if(top.l!==lastAcceptedLabel || now-acceptedAt>2200){
+        if(!recognitionSessionAccepted && (top.l!==lastAcceptedLabel || now-acceptedAt>2200)){
           displayResult(top.l,Math.round(top.p*100));
+          recognitionSessionAccepted=true;
           lastAcceptedLabel=top.l;
           acceptedAt=now;
           // Keep camera/landmark recognition alive after accepting a result.
@@ -1921,5 +1924,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-</body>
+<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'認識を開始しました':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
 </html>
