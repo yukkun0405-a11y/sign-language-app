@@ -761,7 +761,7 @@ function addRecognitionFrame(hands){
   const handCount=(hands.left?1:0)+(hands.right?1:0);
 
   // Single-hand finger-letter recognition remains independent from motion ML.
-  if(handCount===1){
+  if(handCount===1 && recogSequence.length>=SEQ_LEN){
     const lm=hands.left||hands.right;
     try{
       const r=ruleBasedRecognize(null,lm);
@@ -774,9 +774,7 @@ function addRecognitionFrame(hands){
           displayResult(staticCandidate,r.conf);
           lastStaticAccepted=staticCandidate;
           staticAcceptedAt=now;
-          recogSequence=[];
-          recogFrameCounter=0;
-          prevWristForRecognition={left:null,right:null};
+          // Keep the full sequence buffer: progress stays at 100% until recognition ends.
         }
       }else staticCandidateFrames=0;
     }catch(e){ console.warn('single-hand recognition:',e); }
