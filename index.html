@@ -760,29 +760,8 @@ function addRecognitionFrame(hands){
   if(!recognitionEnabled) return;
   const handCount=(hands.left?1:0)+(hands.right?1:0);
 
-  // Single-hand finger-letter recognition remains independent from motion ML.
-  if(handCount===1 && recogSequence.length>=SEQ_LEN){
-    const lm=hands.left||hands.right;
-    try{
-      const r=ruleBasedRecognize(null,lm);
-      const now=Date.now();
-      if(r && r.label && r.label!=='—' && r.conf>=80){
-        if(r.label===staticCandidate) staticCandidateFrames++;
-        else { staticCandidate=r.label; staticCandidateFrames=1; }
-        if(staticCandidateFrames>=4 && !recognitionSessionAccepted &&
-           (staticCandidate!==lastStaticAccepted || now-staticAcceptedAt>1200)){
-          displayResult(staticCandidate,r.conf);
-          lastStaticAccepted=staticCandidate;
-          staticAcceptedAt=now;
-          // Keep the full sequence buffer: progress stays at 100% until recognition ends.
-        }
-      }else staticCandidateFrames=0;
-    }catch(e){ console.warn('single-hand recognition:',e); }
-  }else{
-    staticCandidateFrames=0;
-  }
-
-  // Keep the rolling sequence alive for learned motion recognition.
+  // Build the current frame into the buffer FIRST. No recognition path may
+  // produce a result until all 30 frames have been collected.
   const feat=extractTwoHandFeatures(hands,prevWristForRecognition);
   prevWristForRecognition=updatePrevWrists(hands);
   recogSequence.push(Array.from(feat));
@@ -795,21 +774,50 @@ function addRecognitionFrame(hands){
   const status=document.getElementById('motionStatus');
   if(status) status.textContent=recogSequence.length<SEQ_LEN
     ? `動きを読み取り中 ${progress}%（${handCount}手検出）`
-    : `動きを分析しています…（${handCount}手検出）`;
+    : `100%完了・認識結果を確認中（${handCount}手検出）`;
 
-  if(customModel && customLabels.length && recogSequence.length===SEQ_LEN &&
-     recogFrameCounter%MOTION_PREDICT_STRIDE===0){
+  // Never run either static or motion recognition before the full sequence.
+  if(recogSequence.length<SEQ_LEN || recognitionSessionAccepted) return;
+
+  // Single-hand finger-letter recognition uses one hand, but still waits for
+  // the same complete 30-frame buffer before accepting a result.
+  if(handCount===1){
+    const lm=hands.left||hands.right;
+    try{
+      const r=ruleBasedRecognize(null,lm);
+      if(r && r.label && r.label!=='—' && r.conf>=80){
+        if(r.label===staticCandidate) staticCandidateFrames++;
+        else { staticCandidate=r.label; staticCandidateFrames=1; }
+        if(staticCandidateFrames>=4 && !recognitionSessionAccepted){
+          recognitionSessionAccepted=true;
+          displayResult(staticCandidate,r.conf);
+          if(status) status.textContent='100%完了・指文字を認識しました';
+          return;
+        }
+      }else{
+        staticCandidate=null;
+        staticCandidateFrames=0;
+      }
+    }catch(e){ console.warn('single-hand recognition:',e); }
+  }else{
+    staticCandidate=null;
+    staticCandidateFrames=0;
+  }
+
+  if(customModel && customLabels.length && recogFrameCounter%MOTION_PREDICT_STRIDE===0){
     runMotionPrediction(recogSequence.slice());
   }
 }
 
 async function runMotionPrediction(sequence){
-  if(!customModel || !customLabels.length) return;
+  if(!recognitionEnabled || recognitionSessionAccepted || sequence.length!==SEQ_LEN || !customModel || !customLabels.length) return;
   const input=tf.tensor3d([sequence],[1,SEQ_LEN,MOTION_FEATURE_DIM]);
   try{
     const pred=customModel.predict(input);
     const probs=await pred.data();
     pred.dispose();
+    // The asynchronous prediction may finish after the user stopped recognition.
+    if(!recognitionEnabled || recognitionSessionAccepted) return;
     const indexed=Array.from(probs).map((p,i)=>({p,l:customLabels[i]})).sort((a,b)=>b.p-a.p);
     const top=indexed[0];
     if(top){
@@ -820,8 +828,10 @@ async function runMotionPrediction(sequence){
         const now=Date.now();
         // Accept a new sign once; a repeated sign becomes available again after a short reset.
         if(!recognitionSessionAccepted && (top.l!==lastAcceptedLabel || now-acceptedAt>2200)){
-          displayResult(top.l,Math.round(top.p*100));
           recognitionSessionAccepted=true;
+          displayResult(top.l,Math.round(top.p*100));
+          const status=document.getElementById('motionStatus');
+          if(status) status.textContent='100%完了・手話を認識しました';
           lastAcceptedLabel=top.l;
           acceptedAt=now;
           // Keep camera/landmark recognition alive after accepting a result.
@@ -1922,5 +1932,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'認識を開始しました':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
+<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const p=document.getElementById('motionProgress');if(p)p.style.width='0%';const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'動きを読み取り中 0%':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
 </html>
