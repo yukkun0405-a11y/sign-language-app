@@ -757,11 +757,10 @@ function updatePrevWrists(hands){
 }
 
 function addRecognitionFrame(hands){
-  if(!recognitionEnabled) return;
+  if(!recognitionEnabled || recognitionSessionAccepted) return;
   const handCount=(hands.left?1:0)+(hands.right?1:0);
 
-  // Build the current frame into the buffer FIRST. No recognition path may
-  // produce a result until all 30 frames have been collected.
+  // Collect a complete 30-frame sample before attempting ANY recognition.
   const feat=extractTwoHandFeatures(hands,prevWristForRecognition);
   prevWristForRecognition=updatePrevWrists(hands);
   recogSequence.push(Array.from(feat));
@@ -776,11 +775,10 @@ function addRecognitionFrame(hands){
     ? `動きを読み取り中 ${progress}%（${handCount}手検出）`
     : `100%完了・認識結果を確認中（${handCount}手検出）`;
 
-  // Never run either static or motion recognition before the full sequence.
-  if(recogSequence.length<SEQ_LEN || recognitionSessionAccepted) return;
+  // Crucial gate: no output and no model inference before 100%.
+  if(recogSequence.length<SEQ_LEN) return;
 
-  // Single-hand finger-letter recognition uses one hand, but still waits for
-  // the same complete 30-frame buffer before accepting a result.
+  // Finger spelling: single hand, rule-based classifier. Accept only once per session.
   if(handCount===1){
     const lm=hands.left||hands.right;
     try{
@@ -790,6 +788,8 @@ function addRecognitionFrame(hands){
         else { staticCandidate=r.label; staticCandidateFrames=1; }
         if(staticCandidateFrames>=4 && !recognitionSessionAccepted){
           recognitionSessionAccepted=true;
+          lastStaticAccepted=staticCandidate;
+          staticAcceptedAt=Date.now();
           displayResult(staticCandidate,r.conf);
           if(status) status.textContent='100%完了・指文字を認識しました';
           return;
@@ -804,6 +804,7 @@ function addRecognitionFrame(hands){
     staticCandidateFrames=0;
   }
 
+  // Motion ML is also allowed only after the full buffer is ready.
   if(customModel && customLabels.length && recogFrameCounter%MOTION_PREDICT_STRIDE===0){
     runMotionPrediction(recogSequence.slice());
   }
@@ -816,7 +817,6 @@ async function runMotionPrediction(sequence){
     const pred=customModel.predict(input);
     const probs=await pred.data();
     pred.dispose();
-    // The asynchronous prediction may finish after the user stopped recognition.
     if(!recognitionEnabled || recognitionSessionAccepted) return;
     const indexed=Array.from(probs).map((p,i)=>({p,l:customLabels[i]})).sort((a,b)=>b.p-a.p);
     const top=indexed[0];
@@ -827,11 +827,9 @@ async function runMotionPrediction(sequence){
       if(top.p>=MOTION_THRESHOLD){
         const now=Date.now();
         // Accept a new sign once; a repeated sign becomes available again after a short reset.
-        if(!recognitionSessionAccepted && (top.l!==lastAcceptedLabel || now-acceptedAt>2200)){
+        if(!recognitionSessionAccepted){
           recognitionSessionAccepted=true;
           displayResult(top.l,Math.round(top.p*100));
-          const status=document.getElementById('motionStatus');
-          if(status) status.textContent='100%完了・手話を認識しました';
           lastAcceptedLabel=top.l;
           acceptedAt=now;
           // Keep camera/landmark recognition alive after accepting a result.
