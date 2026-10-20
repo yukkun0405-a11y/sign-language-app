@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>手話翻訳 — 動作認識ML版</title>
+<title>手話をことばに</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -222,19 +222,72 @@
 #panel-train .record-info{line-height:1.6;}
 #panel-train #sampleCounter{font-family:'Noto Sans JP',sans-serif;font-size:12px;}
 </style>
-<style id="recognition-control-style">.recognition-control-card{margin:0 0 14px;padding:14px 15px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 5px 20px rgba(15,23,42,.05)}.recognition-control-main{display:flex;align-items:center;justify-content:space-between;gap:12px}.recognition-control-title{font-size:14px;font-weight:750;color:#172033}.recognition-control-sub{margin-top:3px;font-size:11px;color:#7a8799;line-height:1.5}.recognition-toggle{flex:0 0 auto;min-width:124px;border:0;border-radius:11px;padding:11px 14px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:750;cursor:pointer}.recognition-toggle.active{background:#e5484d}@media(max-width:520px){.recognition-control-main{align-items:stretch;flex-direction:column}.recognition-toggle{width:100%}}</style></head>
+<style id="recognition-control-style">.recognition-control-card{margin:0 0 14px;padding:14px 15px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 5px 20px rgba(15,23,42,.05)}.recognition-control-main{display:flex;align-items:center;justify-content:space-between;gap:12px}.recognition-control-title{font-size:14px;font-weight:750;color:#172033}.recognition-control-sub{margin-top:3px;font-size:11px;color:#7a8799;line-height:1.5}.recognition-toggle{flex:0 0 auto;min-width:124px;border:0;border-radius:11px;padding:11px 14px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:750;cursor:pointer}.recognition-toggle.active{background:#e5484d}@media(max-width:520px){.recognition-control-main{align-items:stretch;flex-direction:column}.recognition-toggle{width:100%}}</style>
+<style id="friendly-product-ui">
+  :root{--bg:#f5f7fc;--surface:#fff;--surface-alt:#eef2ff;--border:rgba(48,72,130,.10);--border-light:rgba(48,72,130,.16);--teal:#315fe8;--teal-dark:#234bc4;--teal-glow:rgba(49,95,232,.08);--text:#1e293b;--text2:#58657d;--text3:#8a95a8;--card-shadow:0 5px 22px rgba(32,55,110,.07)}
+  body{padding:12px 0 36px;background:var(--bg)}
+  body::before{display:none}
+  .app{max-width:680px;padding:0 14px}
+  header{padding:18px 0 18px}
+  .logo-badge{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:600;letter-spacing:0;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 13px;color:#315fe8;margin-bottom:9px}
+  .pulse-dot{width:7px;height:7px;background:#22c55e;animation:none}
+  h1{font-family:'Noto Sans JP',sans-serif;font-size:27px;font-weight:750;letter-spacing:-.04em;margin:4px 0 6px;background:none;color:#1d2b49;-webkit-text-fill-color:currentColor}
+  .subtitle{text-transform:none;font-size:13px;letter-spacing:0;color:#77839a}
+  .tabs{gap:8px;margin-bottom:16px;background:#e9edf7;padding:5px;border-radius:15px}
+  .tab{font-family:'Noto Sans JP',sans-serif;border:0;border-radius:11px;padding:12px 8px;font-size:13px;background:transparent}
+  .tab.active{background:#fff;color:#315fe8;box-shadow:0 2px 8px rgba(30,50,100,.08)}
+  .camera-card,.section-card,.train-section{border:1px solid var(--border-light);box-shadow:var(--card-shadow);border-radius:22px}
+  .camera-card{margin-bottom:13px}
+  .viewport{background:#e8edf5}
+  .cam-overlay{background:rgba(246,248,253,.94);color:#23314c}
+  .hand-ring{border-color:#315fe8;color:#315fe8}
+  .controls-bar{padding:12px 14px}
+  .btn{font-family:'Noto Sans JP',sans-serif;border-radius:13px;font-weight:650}
+  .cam-btn{font-family:'Noto Sans JP',sans-serif}
+  .auto-mode-note{background:#f8faff;border-top:1px solid var(--border);padding:14px 16px}
+  .auto-mode-note strong{font-size:13px;color:#315fe8}
+  .auto-mode-note span{font-size:12px;line-height:1.6}
+  .recognition-control-card{border-radius:17px;border-color:var(--border-light);box-shadow:var(--card-shadow);padding:13px 15px;margin-bottom:13px}
+  .recognition-control-title{font-size:14px;color:#25324b}
+  .recognition-control-sub{font-family:'Noto Sans JP',sans-serif;font-size:11px;color:#7a879a}
+  .recognition-toggle{font-family:'Noto Sans JP',sans-serif;background:#315fe8;border-radius:12px;padding:12px 16px;font-size:13px}
+  .recognition-toggle.active{background:#e34b55}
+  .section-card{margin-bottom:13px;overflow:hidden}
+  .section-header,.history-top{padding:15px 17px}
+  .section-label{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:650;letter-spacing:0;color:#7c8aa2}
+  .result-display{min-height:150px}
+  .result-text{font-size:48px;font-weight:700}
+  .motion-status-card{margin:0 14px 14px;border-radius:15px;background:#f7f9fd;border-color:#e2e8f5}
+  .motion-status-line{font-size:12px}
+  .motion-progress-track{height:7px;border-radius:99px}
+  .motion-progress-fill{border-radius:99px}
+  .sentence-body{padding:22px 18px;min-height:112px}
+  .sentence-text{font-size:19px;line-height:1.9}
+  .actions-row{gap:9px}
+  .action-btn{border:1px solid var(--border-light);border-radius:16px;background:#fff;box-shadow:var(--card-shadow);font-family:'Noto Sans JP',sans-serif;font-weight:600}
+  .action-btn svg{color:#586b92}
+  .model-badge{font-family:'Noto Sans JP',sans-serif}
+  .pred-overlay{display:none!important}
+  .train-section{overflow:hidden;margin-bottom:14px;background:#fff}
+  .train-header{padding:17px 17px 13px;background:#fbfcff}
+  .train-header h2{font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;color:#25324b}
+  .train-header p{font-family:'Noto Sans JP',sans-serif;font-size:12px;line-height:1.7;color:#758198}
+  .train-section button,.train-section input{font-family:'Noto Sans JP',sans-serif}
+  @media(max-width:520px){.app{padding:0 12px}header{padding:14px 0 16px}h1{font-size:25px}.result-display{min-height:132px}.recognition-control-main{align-items:center;flex-direction:row}.recognition-toggle{min-width:118px;width:auto}.actions-row{gap:7px}.action-btn{font-size:12px}}
+</style>
+</head>
 <body>
 <div class="app">
   <header>
-    <div class="logo-badge"><span class="pulse-dot"></span> MediaPipe + TensorFlow.js · JSL</div>
-    <h1>手話翻訳 ML版</h1>
-    <div class="subtitle">Japanese Sign Language Translator</div>
+    <div class="logo-badge"><span class="pulse-dot"></span> 伝えたいことを、ことばに</div>
+    <h1>手話をことばに</h1>
+    <div class="subtitle">手話を文字と声に</div>
   </header>
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('recognize')">🤙 認識</button>
-    <button class="tab" onclick="switchTab('train')">🧠 学習</button>
+    <button class="tab active" onclick="switchTab('recognize')">手話を読む</button>
+    <button class="tab" onclick="switchTab('train')">手話を登録・設定</button>
   </div>
 
   <!-- Loading -->
@@ -260,8 +313,8 @@
           <div class="hand-ring">
             <svg viewBox="0 0 24 24"><path d="M21 7c0-1.1-.9-2-2-2h-4.18C14.6 3.84 13.4 3 12 3c-1.4 0-2.6.84-2.82 2H5C3.9 5 3 5.9 3 7v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7z"/></svg>
           </div>
-          <div class="cam-cta">タップしてカメラ起動</div>
-          <div class="cam-sub">手話認識を開始します</div>
+          <div class="cam-cta">カメラを使って手話を読み取る</div>
+          <div class="cam-sub">手が映るようにカメラに向けてください</div>
         </div>
         <div class="live-badge" id="liveBadge">● LIVE</div>
         <div class="pred-overlay" id="predOverlay">
@@ -271,7 +324,7 @@
       </div>
 
       <div class="controls-bar">
-        <button class="btn flex1" id="mainBtn" onclick="toggleCamera()">▶ カメラ起動</button>
+        <button class="btn flex1" id="mainBtn" onclick="toggleCamera()">▶ カメラを起動</button>
         <div class="cam-switch">
           <button class="cam-btn active" id="btnBack" onclick="switchFacing('environment')">背面</button>
           <button class="cam-btn" id="btnFront" onclick="switchFacing('user')">内側</button>
@@ -280,17 +333,17 @@
 
       <div class="auto-mode-note">
         <span class="auto-mode-icon">✨</span>
-        <div><strong>自動認識</strong><span>片手なら指文字、両手や動きがある場合は手話として認識します</span></div>
+        <div><strong>自動で読み取ります</strong><span>指文字や手の動きを読み取り、ことばに変換します</span></div>
       </div>
     </div>
 
-    <div class="recognition-control-card"><div class="recognition-control-main"><div><div class="recognition-control-title" id="recognitionStateText">認識は停止中</div><div class="recognition-control-sub">認識中に1つだけ結果を文章へ追加します</div></div><button class="recognition-toggle" id="recognitionToggle" onclick="toggleRecognition()">▶ 認識開始</button></div></div>
+    <div class="recognition-control-card"><div class="recognition-control-main"><div><div class="recognition-control-title" id="recognitionStateText">読み取りの準備ができています</div><div class="recognition-control-sub">手話を見せて「読み取り開始」を押してください</div></div><button class="recognition-toggle" id="recognitionToggle" onclick="toggleRecognition()">▶ 読み取り開始</button></div></div>
 <!-- Result -->
     <div class="section-card">
       <div class="section-header">
         <span class="section-label">認識結果</span>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="model-badge none" id="modelBadge">モデル未選択</span>
+          <span class="model-badge none" id="modelBadge">準備中</span>
           <div class="conf-area">
             <span class="conf-num" id="confNum">—</span>
             <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
@@ -319,11 +372,11 @@
     <!-- Sentence -->
     <div class="section-card">
       <div class="section-header">
-        <span class="section-label">生成文</span>
+        <span class="section-label">伝えたいこと</span>
         <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
       </div>
       <div class="sentence-body">
-        <div class="sentence-text empty" id="sentenceEl">認識した単語が自動で文章になります</div>
+        <div class="sentence-text empty" id="sentenceEl">読み取ったことばがここに表示されます</div>
         <div class="ai-status" id="aiStatus"><span class="loader"></span> 文章を生成中...</div>
       </div>
     </div>
@@ -349,8 +402,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>📹 ステップ1: データを録る</h2>
-        <p>手話を最初から最後まで見せて、動きそのものを録画します</p>
+        <h2>📹 ステップ1：手話を録る</h2>
+        <p>登録したい手話を、最初から最後までカメラに見せてください</p>
       </div>
 
       <!-- Mini camera for training -->
@@ -378,12 +431,12 @@
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span class="section-label">認識させたいラベルを選択</span>
+          <span class="section-label">登録することばを選ぶ</span>
           <button class="btn ghost" onclick="showAddLabel()" style="padding:4px 10px;font-size:11px;">＋ ラベル追加</button>
         </div>
         <!-- Add label form (hidden by default) -->
         <div id="addLabelForm" style="display:none;margin-bottom:10px;background:var(--surface-alt);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">新しいラベル名を入力（例：ありがとう、さようなら）</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">新しいことばを入力（例：ありがとう、さようなら）</div>
           <div style="display:flex;gap:6px;">
             <input id="newLabelInput" type="text" placeholder="ラベル名..."
               style="flex:1;background:var(--surface);border:1px solid var(--border-light);border-radius:8px;
@@ -413,8 +466,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>🧠 ステップ2: モデルを学習</h2>
-        <p>録画したデータをもとにブラウザ上でMLモデルを訓練します</p>
+        <h2>ステップ2：登録した手話を覚えさせる</h2>
+        <p>録った手話をもとに、この端末で認識できるようにします</p>
       </div>
       <div class="train-status">
         <div class="train-log" id="trainLog">
@@ -433,8 +486,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>☁️ ステップ2.5: データをアップロード</h2>
-        <p>録画したデータをFirebaseに送信し、みんなのデータと合わせます</p>
+        <h2>手話データの共有</h2>
+        <p>録った手話のデータを共有して、みんなで認識をよくしていきます</p>
       </div>
       <div style="padding:12px 16px;">
         <div id="syncStatus" style="font-size:12px;color:var(--text3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">Firebase未設定</div>
@@ -448,8 +501,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>🧠 ステップ3: 全員分のデータで学習</h2>
-        <p>Firebaseから全ユーザーのデータを取得してMLモデルを訓練します</p>
+        <h2>共有された手話を取り込む</h2>
+        <p>共有された手話のデータを使って、認識をよりよくします</p>
       </div>
       <div class="train-status">
         <div class="train-log" id="trainLog"><span class="ok">準備中...</span></div>
@@ -485,7 +538,7 @@
     <!-- Confusion Matrix -->
     <div class="train-section">
       <div class="train-header">
-        <h2>📊 精度分析（混同行列）</h2>
+        <h2>認識の精度を確認する</h2>
         <p>どのラベルが弱いか・何と混同しているかを確認できます</p>
       </div>
       <div style="padding:12px 16px;">
@@ -610,7 +663,7 @@ function waitLibs(){
 
 async function setupAll(){
   tfReady = true;
-  setLog('TensorFlow.js 読み込み完了', 'ok');
+  setLog('認識機能の準備ができました', 'ok');
   setupHands();
   buildLabelGrid();
 }
@@ -624,7 +677,7 @@ function setupHands(){
   handsModel.initialize().then(()=>{
     handsReady = true;
     document.getElementById('loadingBanner').classList.add('hide');
-    setLog('MediaPipe Hands 準備完了', 'ok');
+    setLog('カメラの準備ができました', 'ok');
     setLog('両手の動きを30フレームずつ録画してから学習してください。2つの手を同時に認識し、片手しか映らない瞬間は自動で補完します。', '');
     // Check Firestore rules include jsl_model
     if(db) setLog('💡 Firestoreルールに jsl_model コレクションを追加してください（セットアップガイド参照）', '');
@@ -823,7 +876,7 @@ async function runMotionPrediction(sequence){
     if(top){
       showTopPreds(indexed.slice(0,3));
       document.getElementById('modelBadge').className='model-badge custom';
-      document.getElementById('modelBadge').textContent='動作ML';
+      document.getElementById('modelBadge').textContent='手話認識';
       if(top.p>=MOTION_THRESHOLD){
         const now=Date.now();
         // Accept a new sign once; a repeated sign becomes available again after a short reset.
@@ -1241,7 +1294,7 @@ async function autoLoadModel(){
         customModel=await tf.loadLayersModel('indexeddb://jsl-motion-model');
         customLabels=JSON.parse(localStorage.getItem('jsl-motion-model-labels')||'[]');
         document.getElementById('modelBadge').className='model-badge custom';
-        document.getElementById('modelBadge').textContent='クラウドML（キャッシュ）';
+        document.getElementById('modelBadge').textContent='共有データ';
         document.getElementById('saveBtn').disabled=false;
         document.getElementById('cmBtn').disabled=false;
         document.getElementById('cloudSaveBtn').disabled=false;
@@ -1277,7 +1330,7 @@ async function autoLoadModel(){
     banner.style.color='var(--teal)';
     banner.querySelector('.loader').style.display='none';
     document.getElementById('modelBadge').className='model-badge custom';
-    document.getElementById('modelBadge').textContent='クラウドML';
+    document.getElementById('modelBadge').textContent='共有データ';
     document.getElementById('saveBtn').disabled=false;
     document.getElementById('cmBtn').disabled=false;
     document.getElementById('cloudSaveBtn').disabled=false;
@@ -1527,7 +1580,7 @@ function updateTrainBtn(){
   if(numLabels < 2){
     setLog(`学習には2種類以上のラベルが各5サンプル以上必要です (現在: ${numLabels}種類)`, '');
   } else {
-    setLog(`${numLabels}種類のラベルでMLモデルを学習できます ✓`, 'ok');
+    setLog(`${numLabels}種類のことばを覚える準備ができました ✓`, 'ok');
   }
 }
 
@@ -1597,7 +1650,7 @@ async function runTraining(data){
   document.getElementById('cmBtn').disabled=false;
   document.getElementById('cloudSaveBtn').disabled=false;
   document.getElementById('modelBadge').className='model-badge custom';
-  document.getElementById('modelBadge').textContent='動作ML';
+  document.getElementById('modelBadge').textContent='手話認識';
 }
 
 // ===== CONFUSION MATRIX =====
@@ -1742,7 +1795,7 @@ async function loadModel(){
           setLog(`✓ モデル読み込み完了！ラベル: ${customLabels.join('、')}`, 'ok');
         }
         document.getElementById('modelBadge').className='model-badge custom';
-        document.getElementById('modelBadge').textContent='カスタムML';
+        document.getElementById('modelBadge').textContent='登録した手話';
         document.getElementById('saveBtn').disabled=false;
       }catch(err){
         setLog('読み込みエラー: '+err.message, 'err');
