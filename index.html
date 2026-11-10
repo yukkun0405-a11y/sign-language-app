@@ -1439,15 +1439,20 @@ async function uploadData(){
       console.log(`Final batch committed: ${batchCount} docs`);
     }
 
-    setLog(`✓ ${success}サンプルをFirebaseにアップロード完了！`, 'ok');
+    setLog(`✓ ${success}サンプルのデータ保存が完了しました。統計を更新中...`, 'ok');
     btn.textContent = `✓ ${success}件送信済み`;
     console.log('Upload complete:', success, 'docs');
-    await updateLocalGlobalStats(labels, success);
-    renderGlobalStatsFromCache();
+    try{
+      await updateLocalGlobalStats(labels, success);
+      renderGlobalStatsFromCache();
+    }catch(statsError){
+      console.warn('Training data uploaded, but stats update failed:',statsError);
+      setLog(`⚠ データ${success}件は保存済みですが、統計の更新に失敗しました: ${statsError.message}`,'err');
+    }
   }catch(e){
     console.error('Upload error:', e);
     setLog(`❌ アップロードエラー: ${e.message}`, 'err');
-    setLog('→ Firestoreのルールを確認: allow read, write: if request.auth != null;', 'err');
+    setLog('→ Firestoreルールで training_data への create と training_stats への read/write が許可されているか確認してください。','err');
     btn.textContent = '☁ データをアップロード';
   }
   btn.disabled = false;
@@ -1601,6 +1606,26 @@ function mirrorFlatSequence(flat){
   return Array.from(mirrored);
 }
 
+// Convert stored flat [SEQ_LEN * FEATURE_DIM] samples into [SEQ_LEN][FEATURE_DIM].
+function samplesToTensorData(samples, contextLabel){
+  return samples.map((sample, sampleIndex)=>{
+    const flat=Array.from(sample||[]);
+    if(flat.length!==SEQ_LEN*MOTION_FEATURE_DIM){
+      throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目の長さが不正です（${flat.length} / ${SEQ_LEN*MOTION_FEATURE_DIM}）。新しい形式で録画し直してください。`);
+    }
+    const frames=[];
+    for(let frame=0;frame<SEQ_LEN;frame++){
+      const start=frame*MOTION_FEATURE_DIM;
+      const row=flat.slice(start,start+MOTION_FEATURE_DIM).map(Number);
+      if(row.length!==MOTION_FEATURE_DIM || row.some(v=>!Number.isFinite(v))){
+        throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目に数値でない特徴量があります。録画し直してください。`);
+      }
+      frames.push(row);
+    }
+    return frames;
+  });
+}
+
 // ===== TRAINING =====
 async function startTraining(){
   const labels=Object.keys(trainingData).filter(k=>(trainingData[k]||[]).length>=5);
@@ -1641,11 +1666,11 @@ async function runTraining(data){
   }
   // Shuffle training set while keeping labels aligned.
   for(let i=trainX.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[trainX[i],trainX[j]]=[trainX[j],trainX[i]];[trainY[i],trainY[j]]=[trainY[j],trainY[i]];}
-  const xs=tf.tensor3d(trainX,[trainX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+  const xs=tf.tensor3d(samplesToTensorData(trainX,"学習データ"),[trainX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
   const trainYTensor=tf.tensor1d(trainY,'int32');
   const ys=tf.oneHot(trainYTensor,labels.length);
   trainYTensor.dispose();
-  const valXs=tf.tensor3d(valX,[valX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+  const valXs=tf.tensor3d(samplesToTensorData(valX,"検証データ"),[valX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
   const valYTensor=tf.tensor1d(valY,'int32');
   const valYs=tf.oneHot(valYTensor,labels.length);
   valYTensor.dispose();
@@ -1713,7 +1738,7 @@ async function showConfusionMatrix(){
 
     // Run prediction on each sample
     const feats = samples.map(f=>Array.from(f));
-    const xs = tf.tensor3d(feats,[feats.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+    const xs = tf.tensor3d(samplesToTensorData(feats,"評価データ"),[feats.length,SEQ_LEN,MOTION_FEATURE_DIM]);
     const preds = customModel.predict(xs);
     const predIdxs = await preds.argMax(1).data();
     xs.dispose(); preds.dispose();
