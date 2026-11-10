@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>手話をことばに</title>
+<title>手話翻訳 — 動作認識ML版</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -222,72 +222,19 @@
 #panel-train .record-info{line-height:1.6;}
 #panel-train #sampleCounter{font-family:'Noto Sans JP',sans-serif;font-size:12px;}
 </style>
-<style id="recognition-control-style">.recognition-control-card{margin:0 0 14px;padding:14px 15px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 5px 20px rgba(15,23,42,.05)}.recognition-control-main{display:flex;align-items:center;justify-content:space-between;gap:12px}.recognition-control-title{font-size:14px;font-weight:750;color:#172033}.recognition-control-sub{margin-top:3px;font-size:11px;color:#7a8799;line-height:1.5}.recognition-toggle{flex:0 0 auto;min-width:124px;border:0;border-radius:11px;padding:11px 14px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:750;cursor:pointer}.recognition-toggle.active{background:#e5484d}@media(max-width:520px){.recognition-control-main{align-items:stretch;flex-direction:column}.recognition-toggle{width:100%}}</style>
-<style id="friendly-product-ui">
-  :root{--bg:#f5f7fc;--surface:#fff;--surface-alt:#eef2ff;--border:rgba(48,72,130,.10);--border-light:rgba(48,72,130,.16);--teal:#315fe8;--teal-dark:#234bc4;--teal-glow:rgba(49,95,232,.08);--text:#1e293b;--text2:#58657d;--text3:#8a95a8;--card-shadow:0 5px 22px rgba(32,55,110,.07)}
-  body{padding:12px 0 36px;background:var(--bg)}
-  body::before{display:none}
-  .app{max-width:680px;padding:0 14px}
-  header{padding:18px 0 18px}
-  .logo-badge{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:600;letter-spacing:0;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 13px;color:#315fe8;margin-bottom:9px}
-  .pulse-dot{width:7px;height:7px;background:#22c55e;animation:none}
-  h1{font-family:'Noto Sans JP',sans-serif;font-size:27px;font-weight:750;letter-spacing:-.04em;margin:4px 0 6px;background:none;color:#1d2b49;-webkit-text-fill-color:currentColor}
-  .subtitle{text-transform:none;font-size:13px;letter-spacing:0;color:#77839a}
-  .tabs{gap:8px;margin-bottom:16px;background:#e9edf7;padding:5px;border-radius:15px}
-  .tab{font-family:'Noto Sans JP',sans-serif;border:0;border-radius:11px;padding:12px 8px;font-size:13px;background:transparent}
-  .tab.active{background:#fff;color:#315fe8;box-shadow:0 2px 8px rgba(30,50,100,.08)}
-  .camera-card,.section-card,.train-section{border:1px solid var(--border-light);box-shadow:var(--card-shadow);border-radius:22px}
-  .camera-card{margin-bottom:13px}
-  .viewport{background:#e8edf5}
-  .cam-overlay{background:rgba(246,248,253,.94);color:#23314c}
-  .hand-ring{border-color:#315fe8;color:#315fe8}
-  .controls-bar{padding:12px 14px}
-  .btn{font-family:'Noto Sans JP',sans-serif;border-radius:13px;font-weight:650}
-  .cam-btn{font-family:'Noto Sans JP',sans-serif}
-  .auto-mode-note{background:#f8faff;border-top:1px solid var(--border);padding:14px 16px}
-  .auto-mode-note strong{font-size:13px;color:#315fe8}
-  .auto-mode-note span{font-size:12px;line-height:1.6}
-  .recognition-control-card{border-radius:17px;border-color:var(--border-light);box-shadow:var(--card-shadow);padding:13px 15px;margin-bottom:13px}
-  .recognition-control-title{font-size:14px;color:#25324b}
-  .recognition-control-sub{font-family:'Noto Sans JP',sans-serif;font-size:11px;color:#7a879a}
-  .recognition-toggle{font-family:'Noto Sans JP',sans-serif;background:#315fe8;border-radius:12px;padding:12px 16px;font-size:13px}
-  .recognition-toggle.active{background:#e34b55}
-  .section-card{margin-bottom:13px;overflow:hidden}
-  .section-header,.history-top{padding:15px 17px}
-  .section-label{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:650;letter-spacing:0;color:#7c8aa2}
-  .result-display{min-height:150px}
-  .result-text{font-size:48px;font-weight:700}
-  .motion-status-card{margin:0 14px 14px;border-radius:15px;background:#f7f9fd;border-color:#e2e8f5}
-  .motion-status-line{font-size:12px}
-  .motion-progress-track{height:7px;border-radius:99px}
-  .motion-progress-fill{border-radius:99px}
-  .sentence-body{padding:22px 18px;min-height:112px}
-  .sentence-text{font-size:19px;line-height:1.9}
-  .actions-row{gap:9px}
-  .action-btn{border:1px solid var(--border-light);border-radius:16px;background:#fff;box-shadow:var(--card-shadow);font-family:'Noto Sans JP',sans-serif;font-weight:600}
-  .action-btn svg{color:#586b92}
-  .model-badge{font-family:'Noto Sans JP',sans-serif}
-  .pred-overlay{display:none!important}
-  .train-section{overflow:hidden;margin-bottom:14px;background:#fff}
-  .train-header{padding:17px 17px 13px;background:#fbfcff}
-  .train-header h2{font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;color:#25324b}
-  .train-header p{font-family:'Noto Sans JP',sans-serif;font-size:12px;line-height:1.7;color:#758198}
-  .train-section button,.train-section input{font-family:'Noto Sans JP',sans-serif}
-  @media(max-width:520px){.app{padding:0 12px}header{padding:14px 0 16px}h1{font-size:25px}.result-display{min-height:132px}.recognition-control-main{align-items:center;flex-direction:row}.recognition-toggle{min-width:118px;width:auto}.actions-row{gap:7px}.action-btn{font-size:12px}}
-</style>
-</head>
+<style id="recognition-control-style">.recognition-control-card{margin:0 0 14px;padding:14px 15px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 5px 20px rgba(15,23,42,.05)}.recognition-control-main{display:flex;align-items:center;justify-content:space-between;gap:12px}.recognition-control-title{font-size:14px;font-weight:750;color:#172033}.recognition-control-sub{margin-top:3px;font-size:11px;color:#7a8799;line-height:1.5}.recognition-toggle{flex:0 0 auto;min-width:124px;border:0;border-radius:11px;padding:11px 14px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:750;cursor:pointer}.recognition-toggle.active{background:#e5484d}@media(max-width:520px){.recognition-control-main{align-items:stretch;flex-direction:column}.recognition-toggle{width:100%}}</style></head>
 <body>
 <div class="app">
   <header>
-    <div class="logo-badge"><span class="pulse-dot"></span> 伝えたいことを、ことばに</div>
-    <h1>手話をことばに</h1>
-    <div class="subtitle">手話を文字と声に</div>
+    <div class="logo-badge"><span class="pulse-dot"></span> MediaPipe + TensorFlow.js · JSL</div>
+    <h1>手話翻訳 ML版</h1>
+    <div class="subtitle">Japanese Sign Language Translator</div>
   </header>
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('recognize')">手話を読む</button>
-    <button class="tab" onclick="switchTab('train')">手話を登録・設定</button>
+    <button class="tab active" onclick="switchTab('recognize')">🤙 認識</button>
+    <button class="tab" onclick="switchTab('train')">🧠 学習</button>
   </div>
 
   <!-- Loading -->
@@ -313,8 +260,8 @@
           <div class="hand-ring">
             <svg viewBox="0 0 24 24"><path d="M21 7c0-1.1-.9-2-2-2h-4.18C14.6 3.84 13.4 3 12 3c-1.4 0-2.6.84-2.82 2H5C3.9 5 3 5.9 3 7v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7z"/></svg>
           </div>
-          <div class="cam-cta">カメラを使って手話を読み取る</div>
-          <div class="cam-sub">手が映るようにカメラに向けてください</div>
+          <div class="cam-cta">タップしてカメラ起動</div>
+          <div class="cam-sub">手話認識を開始します</div>
         </div>
         <div class="live-badge" id="liveBadge">● LIVE</div>
         <div class="pred-overlay" id="predOverlay">
@@ -324,7 +271,7 @@
       </div>
 
       <div class="controls-bar">
-        <button class="btn flex1" id="mainBtn" onclick="toggleCamera()">▶ カメラを起動</button>
+        <button class="btn flex1" id="mainBtn" onclick="toggleCamera()">▶ カメラ起動</button>
         <div class="cam-switch">
           <button class="cam-btn active" id="btnBack" onclick="switchFacing('environment')">背面</button>
           <button class="cam-btn" id="btnFront" onclick="switchFacing('user')">内側</button>
@@ -333,17 +280,17 @@
 
       <div class="auto-mode-note">
         <span class="auto-mode-icon">✨</span>
-        <div><strong>自動で読み取ります</strong><span>指文字や手の動きを読み取り、ことばに変換します</span></div>
+        <div><strong>自動認識</strong><span>片手なら指文字、両手や動きがある場合は手話として認識します</span></div>
       </div>
     </div>
 
-    <div class="recognition-control-card"><div class="recognition-control-main"><div><div class="recognition-control-title" id="recognitionStateText">読み取りの準備ができています</div><div class="recognition-control-sub">手話を見せて「読み取り開始」を押してください</div></div><button class="recognition-toggle" id="recognitionToggle" onclick="toggleRecognition()">▶ 読み取り開始</button></div></div>
+    <div class="recognition-control-card"><div class="recognition-control-main"><div><div class="recognition-control-title" id="recognitionStateText">認識は停止中</div><div class="recognition-control-sub">認識中に1つだけ結果を文章へ追加します</div></div><button class="recognition-toggle" id="recognitionToggle" onclick="toggleRecognition()">▶ 認識開始</button></div></div>
 <!-- Result -->
     <div class="section-card">
       <div class="section-header">
         <span class="section-label">認識結果</span>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="model-badge none" id="modelBadge">準備中</span>
+          <span class="model-badge none" id="modelBadge">モデル未選択</span>
           <div class="conf-area">
             <span class="conf-num" id="confNum">—</span>
             <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
@@ -372,11 +319,11 @@
     <!-- Sentence -->
     <div class="section-card">
       <div class="section-header">
-        <span class="section-label">伝えたいこと</span>
+        <span class="section-label">生成文</span>
         <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
       </div>
       <div class="sentence-body">
-        <div class="sentence-text empty" id="sentenceEl">読み取ったことばがここに表示されます</div>
+        <div class="sentence-text empty" id="sentenceEl">認識した単語が自動で文章になります</div>
         <div class="ai-status" id="aiStatus"><span class="loader"></span> 文章を生成中...</div>
       </div>
     </div>
@@ -402,8 +349,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>📹 ステップ1：手話を録る</h2>
-        <p>登録したい手話を、最初から最後までカメラに見せてください</p>
+        <h2>📹 ステップ1: データを録る</h2>
+        <p>手話を最初から最後まで録画します。指文字も手話も、このデータから学習します</p>
       </div>
 
       <!-- Mini camera for training -->
@@ -431,12 +378,12 @@
 
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span class="section-label">登録することばを選ぶ</span>
+          <span class="section-label">認識させたいラベルを選択</span>
           <button class="btn ghost" onclick="showAddLabel()" style="padding:4px 10px;font-size:11px;">＋ ラベル追加</button>
         </div>
         <!-- Add label form (hidden by default) -->
         <div id="addLabelForm" style="display:none;margin-bottom:10px;background:var(--surface-alt);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">新しいことばを入力（例：ありがとう、さようなら）</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">新しいラベル名を入力（例：ありがとう、さようなら）</div>
           <div style="display:flex;gap:6px;">
             <input id="newLabelInput" type="text" placeholder="ラベル名..."
               style="flex:1;background:var(--surface);border:1px solid var(--border-light);border-radius:8px;
@@ -466,8 +413,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>ステップ2：登録した手話を覚えさせる</h2>
-        <p>録った手話をもとに、この端末で認識できるようにします</p>
+        <h2>🧠 ステップ2: モデルを学習</h2>
+        <p>録画したデータをもとにブラウザ上でMLモデルを訓練します</p>
       </div>
       <div class="train-status">
         <div class="train-log" id="trainLog">
@@ -486,8 +433,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>手話データの共有</h2>
-        <p>録った手話のデータを共有して、みんなで認識をよくしていきます</p>
+        <h2>☁️ ステップ2.5: データをアップロード</h2>
+        <p>録画したデータをFirebaseに送信し、みんなのデータと合わせます</p>
       </div>
       <div style="padding:12px 16px;">
         <div id="syncStatus" style="font-size:12px;color:var(--text3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">Firebase未設定</div>
@@ -501,8 +448,8 @@
 
     <div class="train-section">
       <div class="train-header">
-        <h2>共有された手話を取り込む</h2>
-        <p>共有された手話のデータを使って、認識をよりよくします</p>
+        <h2>🧠 ステップ3: 全員分のデータで学習</h2>
+        <p>Firebaseから全ユーザーのデータを取得してMLモデルを訓練します</p>
       </div>
       <div class="train-status">
         <div class="train-log" id="trainLog"><span class="ok">準備中...</span></div>
@@ -528,9 +475,9 @@
       </div>
       <div style="padding:12px 16px;">
         <div style="font-size:12px;color:var(--text2);line-height:1.8;">
-          📌 各ラベルにつき<strong style="color:var(--text)">20動作サンプル以上</strong>録画すると精度が上がります<br>
+          📌 各ラベルにつき<strong style="color:var(--text)">20〜30サンプル以上</strong>を目安に、手のひら・手の甲・少し傾けた向きも混ぜて録画してください<br>
           📌 <strong style="color:var(--text)">複数人でアップロード</strong>するほどモデルが汎用的になります<br>
-          📌 <strong style="color:var(--text)">明るい場所・手全体が映る距離</strong>で録画してください
+          📌 <strong style="color:var(--text)">明るい場所・手全体が映る距離</strong>で録画してください。背面／内側カメラの両方で録るのも有効です
         </div>
       </div>
     </div>
@@ -538,7 +485,7 @@
     <!-- Confusion Matrix -->
     <div class="train-section">
       <div class="train-header">
-        <h2>認識の精度を確認する</h2>
+        <h2>📊 精度分析（混同行列）</h2>
         <p>どのラベルが弱いか・何と混同しているかを確認できます</p>
       </div>
       <div style="padding:12px 16px;">
@@ -616,13 +563,17 @@ let lastRecogMs=0, rafId=null;
 
 // ===== MOTION RECOGNITION =====
 // One sample is a sequence of frames rather than a single hand shape.
-const MOTION_MODEL_VERSION='motion-v2-2hands';
+const FEATURE_SCHEMA_VERSION='palm-frame-v3';
+const MOTION_MODEL_VERSION='motion-v3-palm-frame-73d';
 const SEQ_LEN=30;
-const SINGLE_HAND_FEATURE_DIM=69; // 63 hand-shape + wrist position(3) + wrist velocity(3)
-const MOTION_FEATURE_DIM=SINGLE_HAND_FEATURE_DIM*2; // Left/Right (or screen-left/screen-right) two-hand sequence
+// 63 palm-local landmarks + 3 wrist position + 3 wrist velocity + 1 presence + 3 palm-normal values.
+const SINGLE_HAND_FEATURE_DIM=73;
+const MOTION_FEATURE_DIM=SINGLE_HAND_FEATURE_DIM*2;
+const TRAINING_STATS_DOC='palm-frame-v3';
 const MOTION_PREDICT_STRIDE=8;
 const MOTION_THRESHOLD=0.72;
 let recogSequence=[];
+let recognitionRunId=0;
 let fingerSequence=[];
 let lastFingerLabel=null;
 let fingerStableCount=0;
@@ -636,6 +587,11 @@ let lastStaticAccepted=null;
 let staticAcceptedAt=0;
 let noHandFrames=0;
 let prevWristForRecognition={left:null,right:null};
+// Keep hand slots stable when a hand crosses the center of the camera view.
+const handSlotTrackers={
+  recognition:{left:null,right:null,missing:0},
+  training:{left:null,right:null,missing:0}
+};
 let trainSequence=[];
 let prevWristForTraining={left:null,right:null};
 let handsReady=false, tfReady=false, handsModel=null;
@@ -663,7 +619,7 @@ function waitLibs(){
 
 async function setupAll(){
   tfReady = true;
-  setLog('認識機能の準備ができました', 'ok');
+  setLog('TensorFlow.js 読み込み完了', 'ok');
   setupHands();
   buildLabelGrid();
 }
@@ -677,8 +633,8 @@ function setupHands(){
   handsModel.initialize().then(()=>{
     handsReady = true;
     document.getElementById('loadingBanner').classList.add('hide');
-    setLog('カメラの準備ができました', 'ok');
-    setLog('両手の動きを30フレームずつ録画してから学習してください。2つの手を同時に認識し、片手しか映らない瞬間は自動で補完します。', '');
+    setLog('MediaPipe Hands 準備完了', 'ok');
+    setLog('手のひらを基準に座標を整えて認識します。指文字・両手の手話とも、新しく録画して学習してください。', '');
     // Check Firestore rules include jsl_model
     if(db) setLog('💡 Firestoreルールに jsl_model コレクションを追加してください（セットアップガイド参照）', '');
     updateTrainBtn();
@@ -687,32 +643,57 @@ function setupHands(){
 
 // ===== MEDIAPIPE RESULT =====
 let currentLandmarks = [];
+let currentLandmarkAspect = 1;
 
-// Keep two hands in a stable Left/Right slot. If handedness is unavailable,
-// fall back to screen position (x) so the model still receives a fixed layout.
-function getTwoHands(results){
-  const hands = results.multiHandLandmarks || [];
-  if(!hands.length) return {left:null,right:null};
+// Assign detections to stable screen-left/screen-right slots. MediaPipe's
+// handedness label assumes mirrored selfie input, so relying on it here can
+// invert labels between front and rear cameras.
+function resetHandSlotTracker(source){
+  const t=handSlotTrackers[source];
+  if(t){ t.left=null; t.right=null; t.missing=0; }
+}
+function getTwoHands(results, source='recognition'){
+  const hands=(results.multiHandLandmarks||[]).slice(0,2);
+  const tracker=handSlotTrackers[source] || handSlotTrackers.recognition;
+  const center=h=>h ? {x:h[0].x,y:h[0].y} : null;
+  const dist=(a,b)=>!a||!b ? Infinity : Math.hypot(a.x-b.x,a.y-b.y);
+  if(!hands.length){
+    tracker.missing++;
+    if(tracker.missing>=8){ tracker.left=null; tracker.right=null; }
+    return {left:null,right:null};
+  }
+  tracker.missing=0;
   if(hands.length===1){
-    const h=hands[0];
-    const x=h[0]?.x ?? 0.5;
-    return x < 0.5 ? {left:h,right:null} : {left:null,right:h};
+    const h=hands[0], c=center(h);
+    let side;
+    if(tracker.left && tracker.right){
+      side=dist(c,tracker.left)<=dist(c,tracker.right)?'left':'right';
+    }else if(tracker.left){ side='left'; }
+    else if(tracker.right){ side='right'; }
+    else { side=c.x<0.5?'left':'right'; }
+    tracker[side]=c;
+    return side==='left' ? {left:h,right:null} : {left:null,right:h};
   }
-
-  const handed = results.multiHandedness || [];
-  let left=null,right=null;
-  for(let i=0;i<hands.length;i++){
-    const label=handed[i]?.label;
-    if(label==='Left' && !left) left=hands[i];
-    else if(label==='Right' && !right) right=hands[i];
+  let leftHand, rightHand;
+  if(tracker.left && tracker.right){
+    const direct=dist(center(hands[0]),tracker.left)+dist(center(hands[1]),tracker.right);
+    const swapped=dist(center(hands[1]),tracker.left)+dist(center(hands[0]),tracker.right);
+    if(direct<=swapped){ leftHand=hands[0]; rightHand=hands[1]; }
+    else { leftHand=hands[1]; rightHand=hands[0]; }
+  }else if(tracker.left || tracker.right){
+    const trackedSide=tracker.left?'left':'right';
+    const tracked=tracker[trackedSide];
+    const d0=dist(center(hands[0]),tracked), d1=dist(center(hands[1]),tracked);
+    const matched=d0<=d1?hands[0]:hands[1];
+    const other=matched===hands[0]?hands[1]:hands[0];
+    if(trackedSide==='left'){ leftHand=matched; rightHand=other; }
+    else { rightHand=matched; leftHand=other; }
+  }else{
+    const sorted=hands.sort((a,b)=>(a[0]?.x??0)-(b[0]?.x??0));
+    leftHand=sorted[0]; rightHand=sorted[1];
   }
-  // MediaPipe handedness can depend on whether the source is mirrored.
-  // If the labels collide/missing, use x-order as a deterministic fallback.
-  if(!left || !right){
-    const sorted=hands.slice().sort((a,b)=>(a[0]?.x??0)-(b[0]?.x??0));
-    left=sorted[0]; right=sorted[1];
-  }
-  return {left,right};
+  tracker.left=center(leftHand); tracker.right=center(rightHand);
+  return {left:leftHand,right:rightHand};
 }
 
 function onHandResults(results){
@@ -722,12 +703,13 @@ function onHandResults(results){
   const targetVideo = isTrainFrame ? trainVideo : video;
 
   if(targetVideo.videoWidth > 0){
+    currentLandmarkAspect=targetVideo.videoWidth/targetVideo.videoHeight;
     targetCanvas.width=targetVideo.videoWidth;
     targetCanvas.height=targetVideo.videoHeight;
   }
   targetCtx.clearRect(0,0,targetCanvas.width,targetCanvas.height);
 
-  const twoHands=getTwoHands(results);
+  const twoHands=getTwoHands(results,isTrainFrame?'training':'recognition');
   const hasAny=!!(twoHands.left || twoHands.right);
   currentLandmarks=[twoHands.left,twoHands.right].filter(Boolean);
 
@@ -774,23 +756,50 @@ function drawHandOnCtx(lm, c, W, H, side='left'){
 }
 
 // ===== FEATURE EXTRACTION =====
+// Build a hand-centered 3D coordinate frame from the palm. This removes most
+// changes caused by camera position, hand size, and in-plane hand rotation.
+function vectorLength3(v){ return Math.hypot(v[0],v[1],v[2]); }
+function normalizeVector3(v,fallback=[0,1,0]){
+  const n=vectorLength3(v);
+  return n>1e-6 ? v.map(x=>x/n) : fallback.slice();
+}
+function dotVector3(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function crossVector3(a,b){
+  return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+}
+function pointDelta(a,b){
+  // MediaPipe x/z are width-normalized while y is height-normalized.
+  const aspect=currentLandmarkAspect||1;
+  return [(a.x-b.x)*aspect,a.y-b.y,(a.z-b.z)*aspect];
+}
 function extractSingleHandFeatures(lm, prevWrist=null){
-  const feat = new Float32Array(SINGLE_HAND_FEATURE_DIM);
-  if(!lm){ return feat; }
+  const feat=new Float32Array(SINGLE_HAND_FEATURE_DIM);
+  if(!lm || lm.length<21) return feat;
   const wrist=lm[0];
-  const dx=lm[9].x-wrist.x, dy=lm[9].y-wrist.y, dz=lm[9].z-wrist.z;
-  const scale=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+  const palmUp=pointDelta(lm[9],wrist);
+  const palmAcross=pointDelta(lm[5],lm[17]);
+  const yAxis=normalizeVector3(palmUp);
+  // Gram-Schmidt: make the across-palm axis perpendicular to the palm-up axis.
+  const projection=dotVector3(palmAcross,yAxis);
+  const xOrthogonal=palmAcross.map((v,i)=>v-projection*yAxis[i]);
+  const xAxis=normalizeVector3(xOrthogonal,[1,0,0]);
+  const zAxis=normalizeVector3(crossVector3(xAxis,yAxis),[0,0,1]);
+  const palmScale=Math.max((vectorLength3(palmUp)+vectorLength3(palmAcross))*0.5,1e-5);
   for(let i=0;i<21;i++){
-    feat[i*3]=(lm[i].x-wrist.x)/scale;
-    feat[i*3+1]=(lm[i].y-wrist.y)/scale;
-    feat[i*3+2]=(lm[i].z-wrist.z)/scale;
+    const rel=pointDelta(lm[i],wrist);
+    feat[i*3]=dotVector3(rel,xAxis)/palmScale;
+    feat[i*3+1]=dotVector3(rel,yAxis)/palmScale;
+    feat[i*3+2]=dotVector3(rel,zAxis)/palmScale;
   }
-  feat[63]=wrist.x;
-  feat[64]=wrist.y;
-  feat[65]=wrist.z;
+  // Retain global wrist movement so motion signs remain distinguishable.
+  feat[63]=wrist.x; feat[64]=wrist.y; feat[65]=wrist.z;
   feat[66]=prevWrist ? wrist.x-prevWrist.x : 0;
   feat[67]=prevWrist ? wrist.y-prevWrist.y : 0;
   feat[68]=prevWrist ? wrist.z-prevWrist.z : 0;
+  feat[69]=1; // visible-hand flag (an absent hand is represented by all zeros)
+  // Keep palm orientation as a separate signal: the local frame handles roll,
+  // while the normal lets the model learn meaningful palm-facing differences.
+  feat[70]=zAxis[0]; feat[71]=zAxis[1]; feat[72]=zAxis[2];
   return feat;
 }
 
@@ -812,8 +821,7 @@ function updatePrevWrists(hands){
 function addRecognitionFrame(hands){
   if(!recognitionEnabled || recognitionSessionAccepted) return;
   const handCount=(hands.left?1:0)+(hands.right?1:0);
-
-  // Collect a complete 30-frame sample before attempting ANY recognition.
+  if(handCount===0) return;
   const feat=extractTwoHandFeatures(hands,prevWristForRecognition);
   prevWristForRecognition=updatePrevWrists(hands);
   recogSequence.push(Array.from(feat));
@@ -824,59 +832,31 @@ function addRecognitionFrame(hands){
   const el=document.getElementById('motionProgress');
   if(el) el.style.width=progress+'%';
   const status=document.getElementById('motionStatus');
-  if(status) status.textContent=recogSequence.length<SEQ_LEN
-    ? `動きを読み取り中 ${progress}%（${handCount}手検出）`
-    : `100%完了・認識結果を確認中（${handCount}手検出）`;
-
-  // Crucial gate: no output and no model inference before 100%.
-  if(recogSequence.length<SEQ_LEN) return;
-
-  // Finger spelling: single hand, rule-based classifier. Accept only once per session.
-  if(handCount===1){
-    const lm=hands.left||hands.right;
-    try{
-      const r=ruleBasedRecognize(null,lm);
-      if(r && r.label && r.label!=='—' && r.conf>=80){
-        if(r.label===staticCandidate) staticCandidateFrames++;
-        else { staticCandidate=r.label; staticCandidateFrames=1; }
-        if(staticCandidateFrames>=4 && !recognitionSessionAccepted){
-          recognitionSessionAccepted=true;
-          lastStaticAccepted=staticCandidate;
-          staticAcceptedAt=Date.now();
-          displayResult(staticCandidate,r.conf);
-          if(status) status.textContent='100%完了・指文字を認識しました';
-          return;
-        }
-      }else{
-        staticCandidate=null;
-        staticCandidateFrames=0;
-      }
-    }catch(e){ console.warn('single-hand recognition:',e); }
-  }else{
-    staticCandidate=null;
-    staticCandidateFrames=0;
+  if(status){
+    if(recogSequence.length<SEQ_LEN) status.textContent=`動きを読み取り中 ${progress}%（${handCount}手検出）`;
+    else if(!customModel || !customLabels.length) status.textContent='読み取り完了・学習済みモデルを登録してください';
+    else status.textContent=`読み取り完了・判定中（${handCount}手検出）`;
   }
-
-  // Motion ML is also allowed only after the full buffer is ready.
-  if(customModel && customLabels.length && recogFrameCounter%MOTION_PREDICT_STRIDE===0){
-    runMotionPrediction(recogSequence.slice());
-  }
+  // All classes, including finger spelling, use the newly trained model.
+  if(recogSequence.length<SEQ_LEN || !customModel || !customLabels.length) return;
+  if(recogFrameCounter%MOTION_PREDICT_STRIDE===0) runMotionPrediction(recogSequence.slice());
 }
 
 async function runMotionPrediction(sequence){
+  const runId=recognitionRunId;
   if(!recognitionEnabled || recognitionSessionAccepted || sequence.length!==SEQ_LEN || !customModel || !customLabels.length) return;
   const input=tf.tensor3d([sequence],[1,SEQ_LEN,MOTION_FEATURE_DIM]);
   try{
     const pred=customModel.predict(input);
     const probs=await pred.data();
     pred.dispose();
-    if(!recognitionEnabled || recognitionSessionAccepted) return;
+    if(!recognitionEnabled || recognitionSessionAccepted || runId!==recognitionRunId) return;
     const indexed=Array.from(probs).map((p,i)=>({p,l:customLabels[i]})).sort((a,b)=>b.p-a.p);
     const top=indexed[0];
     if(top){
       showTopPreds(indexed.slice(0,3));
       document.getElementById('modelBadge').className='model-badge custom';
-      document.getElementById('modelBadge').textContent='手話認識';
+      document.getElementById('modelBadge').textContent='学習済み';
       if(top.p>=MOTION_THRESHOLD){
         const now=Date.now();
         // Accept a new sign once; a repeated sign becomes available again after a short reset.
@@ -958,6 +938,7 @@ async function startTrainCamera(){
     document.getElementById('trainOverlay').style.display='none';
     document.getElementById('trainLiveBadge').style.display='block';
     trainCameraOn=true;
+    resetHandSlotTracker('training');
     document.getElementById('trainCamBtn').textContent='■ カメラ停止';
     document.getElementById('trainCamBtn').classList.add('stop');
     // Enable record button if label already selected
@@ -1025,7 +1006,7 @@ async function startCamera(){
     document.getElementById('camOverlay').classList.add('hidden');
     document.getElementById('liveBadge').classList.add('visible');
     cameraOn=true; lastRecogMs=Date.now()+1000;
-    recogSequence=[]; fingerSequence=[]; recogFrameCounter=0; lastAcceptedLabel=null; lastFingerLabel=null; fingerStableCount=0; acceptedAt=0; fingerAcceptedAt=0; prevWristForRecognition={left:null,right:null}; noHandFrames=0;
+    recognitionRunId++; recogSequence=[]; fingerSequence=[]; recogFrameCounter=0; resetHandSlotTracker('recognition'); lastAcceptedLabel=null; lastFingerLabel=null; fingerStableCount=0; acceptedAt=0; fingerAcceptedAt=0; prevWristForRecognition={left:null,right:null}; noHandFrames=0;
     document.getElementById('mainBtn').textContent='■ カメラ停止';
     document.getElementById('mainBtn').classList.add('stop');
     setResultEmpty('手を映してください');
@@ -1035,6 +1016,7 @@ async function startCamera(){
 
 function stopCamera(){
   cameraOn=false;
+  recognitionRunId++;
   recogSequence=[]; fingerSequence=[]; recogFrameCounter=0; lastFingerLabel=null; fingerStableCount=0; prevWristForRecognition=null;
   const mp=document.getElementById('motionProgress'); if(mp) mp.style.width='0%';
   const ms=document.getElementById('motionStatus'); if(ms) ms.textContent='カメラを起動すると動きを読み取ります';
@@ -1193,14 +1175,14 @@ function toggleRecording(){
 function startRecording(){
   if(!selectedLabel||!trainCameraOn)return;
   isRecording=true; recordCount=0;
-  trainSequence=[]; prevWristForTraining={left:null,right:null};
+  trainSequence=[]; prevWristForTraining={left:null,right:null}; resetHandSlotTracker('training');
   document.getElementById('recordBtn').textContent='■ 録画停止';
   document.getElementById('recordBtn').classList.remove('amber');
   document.getElementById('recordBtn').classList.add('stop');
   document.getElementById('recIndicator').style.display='block';
   document.getElementById('sampleCounter').style.display='block';
   document.getElementById('sampleCounter').textContent='0 / '+RECORD_TARGET+' 動作サンプル';
-  document.getElementById('recordInfo').innerHTML=`<strong style="color:var(--teal)">● 録画中</strong> — 手話を最初から最後まで、片手の指文字なら片手、手話なら必要な手を映してください`;
+  document.getElementById('recordInfo').innerHTML=`<strong style="color:var(--teal)">● 録画中</strong> — 手話を最初から最後まで映してください。向きや位置を少し変えたサンプルも録画すると安定しやすくなります`;
   document.getElementById('sampleCounter').textContent='0 / '+RECORD_TARGET+' 動作サンプル';
 }
 
@@ -1291,10 +1273,10 @@ async function autoLoadModel(){
     const cachedVersion=localStorage.getItem('jsl-motion-model-version');
     if(cachedVersion===remoteVersion){
       try{
-        customModel=await tf.loadLayersModel('indexeddb://jsl-motion-model');
-        customLabels=JSON.parse(localStorage.getItem('jsl-motion-model-labels')||'[]');
+        customModel=await tf.loadLayersModel('indexeddb://jsl-motion-palm-frame-v3');
+        customLabels=JSON.parse(localStorage.getItem('jsl-motion-model-labels-palm-frame-v3')||'[]');
         document.getElementById('modelBadge').className='model-badge custom';
-        document.getElementById('modelBadge').textContent='共有データ';
+        document.getElementById('modelBadge').textContent='クラウドML（キャッシュ）';
         document.getElementById('saveBtn').disabled=false;
         document.getElementById('cmBtn').disabled=false;
         document.getElementById('cloudSaveBtn').disabled=false;
@@ -1320,9 +1302,9 @@ async function autoLoadModel(){
     customModel=await tf.loadLayersModel(tf.io.fromMemory(meta.modelTopology,meta.weightSpecs,bytes.buffer));
 
     // 次回以降はFirestoreの重みチャンクを読まない。
-    await customModel.save('indexeddb://jsl-motion-model');
+    await customModel.save('indexeddb://jsl-motion-palm-frame-v3');
     localStorage.setItem('jsl-motion-model-version',remoteVersion);
-    localStorage.setItem('jsl-motion-model-labels',JSON.stringify(customLabels));
+    localStorage.setItem('jsl-motion-model-labels-palm-frame-v3',JSON.stringify(customLabels));
 
     msg.textContent=`✓ モデル読み込み完了！(${customLabels.length}ラベル)`;
     banner.style.background='rgba(0,229,176,0.1)';
@@ -1330,7 +1312,7 @@ async function autoLoadModel(){
     banner.style.color='var(--teal)';
     banner.querySelector('.loader').style.display='none';
     document.getElementById('modelBadge').className='model-badge custom';
-    document.getElementById('modelBadge').textContent='共有データ';
+    document.getElementById('modelBadge').textContent='クラウドML';
     document.getElementById('saveBtn').disabled=false;
     document.getElementById('cmBtn').disabled=false;
     document.getElementById('cloudSaveBtn').disabled=false;
@@ -1371,9 +1353,9 @@ async function autoSaveModel(){
     await batch.commit();
 
     // 保存直後はローカルキャッシュも更新。
-    await customModel.save('indexeddb://jsl-motion-model');
+    await customModel.save('indexeddb://jsl-motion-palm-frame-v3');
     localStorage.setItem('jsl-motion-model-version',version);
-    localStorage.setItem('jsl-motion-model-labels',JSON.stringify(customLabels));
+    localStorage.setItem('jsl-motion-model-labels-palm-frame-v3',JSON.stringify(customLabels));
     setLog(`✓ Firestoreに保存完了！(${customLabels.length}ラベル / ${chunks.length}チャンク)`,'ok');
     setLog('以後は各端末のキャッシュを優先するため、読み取りを大幅に節約します。','ok');
     btn.textContent='✓ 共有済み';
@@ -1434,6 +1416,8 @@ async function uploadData(){
         const ref = db.collection('training_data').doc();
         batch.set(ref, {
           label,
+          schemaLabel: `${FEATURE_SCHEMA_VERSION}__${label}`,
+          featureVersion: FEATURE_SCHEMA_VERSION,
           features: Array.from(samples[i]),
           uid: currentUser.uid,
           uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1471,7 +1455,7 @@ async function uploadData(){
 
 async function updateLocalGlobalStats(labels, uploadedCount){
   if(!db || !uploadedCount) return;
-  const statsRef=db.collection('training_stats').doc('global');
+  const statsRef=db.collection('training_stats').doc(TRAINING_STATS_DOC);
   const increments={};
   for(const label of labels){
     const count=(trainingData[label]||[]).length;
@@ -1502,7 +1486,7 @@ async function fetchGlobalStats(){
   statsEl.innerHTML='<span style="color:var(--text3)">集計情報を読み込み中...</span>';
   try{
     // training_data全件取得を廃止。統計用1ドキュメントだけ読む。
-    const snap=await db.collection('training_stats').doc('global').get();
+    const snap=await db.collection('training_stats').doc(TRAINING_STATS_DOC).get();
     if(!snap.exists){
       statsEl.innerHTML='<span style="color:var(--text3)">統計データがまだありません。</span>';
     }else renderGlobalStats(snap.data());
@@ -1515,7 +1499,7 @@ async function fetchGlobalStats(){
 
 async function renderGlobalStatsFromCache(){
   try{
-    const snap=await db.collection('training_stats').doc('global').get();
+    const snap=await db.collection('training_stats').doc(TRAINING_STATS_DOC).get();
     if(snap.exists){ document.getElementById('globalStats').style.display='block'; renderGlobalStats(snap.data()); }
   }catch(e){ console.warn('stats refresh:',e.message); }
 }
@@ -1528,7 +1512,7 @@ async function trainFromFirebase(){
   const MAX_PER_LABEL=30;
   try{
     setLog('① ラベル一覧を取得中（1ドキュメント）...','');
-    const statsSnap=await db.collection('training_stats').doc('global').get();
+    const statsSnap=await db.collection('training_stats').doc(TRAINING_STATS_DOC).get();
     if(!statsSnap.exists){
       setLog('データがありません。先にアップロードしてください。','err');
       btn.textContent='🌐 全員データで学習'; btn.disabled=false; return;
@@ -1549,7 +1533,7 @@ async function trainFromFirebase(){
       document.getElementById('trainProgress').style.width=((i+1)/allLabels.length*50)+'%';
       // doc IDの全件取得を廃止。label条件＋limitだけで直接必要数を読む。
       const snap=await db.collection('training_data')
-        .where('label','==',label)
+        .where('schemaLabel','==',`${FEATURE_SCHEMA_VERSION}__${label}`)
         .limit(MAX_PER_LABEL)
         .get();
       remoteData[label]=[];
@@ -1580,45 +1564,92 @@ function updateTrainBtn(){
   if(numLabels < 2){
     setLog(`学習には2種類以上のラベルが各5サンプル以上必要です (現在: ${numLabels}種類)`, '');
   } else {
-    setLog(`${numLabels}種類のことばを覚える準備ができました ✓`, 'ok');
+    setLog(`${numLabels}種類のラベルでMLモデルを学習できます ✓`, 'ok');
   }
+}
+
+// Horizontal-mirror augmentation. It also swaps the two hand slots and
+// reflects camera-space wrist X, allowing front/rear camera orientation changes.
+function mirrorFlatSequence(flat){
+  const mirrored=new Float32Array(flat.length);
+  for(let frame=0;frame<SEQ_LEN;frame++){
+    const frameBase=frame*MOTION_FEATURE_DIM;
+    for(let sourceHand=0;sourceHand<2;sourceHand++){
+      const sourceBase=frameBase+sourceHand*SINGLE_HAND_FEATURE_DIM;
+      const targetBase=frameBase+(1-sourceHand)*SINGLE_HAND_FEATURE_DIM;
+      const present=flat[sourceBase+69]===1;
+      if(!present) continue;
+      for(let point=0;point<21;point++){
+        const i=point*3;
+        mirrored[targetBase+i]=flat[sourceBase+i];
+        mirrored[targetBase+i+1]=flat[sourceBase+i+1];
+        mirrored[targetBase+i+2]=-flat[sourceBase+i+2];
+      }
+      mirrored[targetBase+63]=1-flat[sourceBase+63];
+      mirrored[targetBase+64]=flat[sourceBase+64];
+      mirrored[targetBase+65]=flat[sourceBase+65];
+      mirrored[targetBase+66]=-flat[sourceBase+66];
+      mirrored[targetBase+67]=flat[sourceBase+67];
+      mirrored[targetBase+68]=flat[sourceBase+68];
+      mirrored[targetBase+69]=1;
+      // A plane normal is an axial vector under a mirror reflection.
+      mirrored[targetBase+70]=flat[sourceBase+70];
+      mirrored[targetBase+71]=-flat[sourceBase+71];
+      mirrored[targetBase+72]=-flat[sourceBase+72];
+    }
+  }
+  return Array.from(mirrored);
 }
 
 // ===== TRAINING =====
 async function startTraining(){
   const labels=Object.keys(trainingData).filter(k=>(trainingData[k]||[]).length>=5);
   if(labels.length<2){ alert('2種類以上のラベルが必要です'); return; }
-  document.getElementById('trainBtn').disabled=true;
-  await runTraining(trainingData);
-  document.getElementById('trainBtn').disabled=false;
+  const button=document.getElementById('trainBtn');
+  button.disabled=true;
+  try{ await runTraining(trainingData); }
+  catch(e){ console.error(e); setLog('学習エラー: '+e.message,'err'); }
+  finally{ button.disabled=false; updateTrainBtn(); }
 }
 
 async function runTraining(data){
   const labels=Object.keys(data).filter(k=>(data[k]||[]).length>=5);
-  if(labels.length<2){ setLog('学習には2ラベル以上必要です', 'err'); return; }
-
+  if(labels.length<2){ setLog('学習には2ラベル以上が必要です（各ラベル5サンプル以上）','err'); return; }
   customLabels=labels;
-  setLog('動作シーケンスを準備中...', '');
+  setLog('手の向きに強い特徴量を準備中...', '');
 
-  const allX=[], allY=[];
+  const trainX=[],trainY=[],valX=[],valY=[];
   for(let li=0;li<labels.length;li++){
-    for(const seq of data[labels[li]]){
-      let flat=Array.from(seq);
+    const samples=(data[labels[li]]||[]).map(seq=>Array.from(seq));
+    for(const flat of samples){
       if(flat.length!==SEQ_LEN*MOTION_FEATURE_DIM){
-        setLog(`「${labels[li]}」に長さが違うデータがあります。旧モデルのデータは使えません。`, 'err');
+        setLog(`「${labels[li]}」に旧形式のデータがあります。新しい特徴量で録画し直してください。`,'err');
         return;
       }
-      allX.push(flat); allY.push(li);
+    }
+    // Keep validation samples unaugmented so validation does not contain a
+    // mirrored copy of a sample that is also present in the training set.
+    for(let i=samples.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[samples[i],samples[j]]=[samples[j],samples[i]];}
+    const valCount=Math.max(1,Math.floor(samples.length*0.2));
+    const validation=samples.slice(0,valCount);
+    const training=samples.slice(valCount);
+    for(const flat of validation){ valX.push(flat); valY.push(li); }
+    for(const flat of training){
+      trainX.push(flat); trainY.push(li);
+      trainX.push(mirrorFlatSequence(flat)); trainY.push(li);
     }
   }
-
-  const idx=[...Array(allX.length).keys()];
-  for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
-  const xShuf=idx.map(i=>allX[i]), yShuf=idx.map(i=>allY[i]);
-  const xs=tf.tensor3d(xShuf,[xShuf.length,SEQ_LEN,MOTION_FEATURE_DIM]);
-  const ys=tf.oneHot(tf.tensor1d(yShuf,'int32'),labels.length);
-
-  setLog(`学習開始: ${labels.length}クラス / ${allX.length}動作サンプル / 1サンプル${SEQ_LEN}フレーム`, 'ok');
+  // Shuffle training set while keeping labels aligned.
+  for(let i=trainX.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[trainX[i],trainX[j]]=[trainX[j],trainX[i]];[trainY[i],trainY[j]]=[trainY[j],trainY[i]];}
+  const xs=tf.tensor3d(trainX,[trainX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+  const trainYTensor=tf.tensor1d(trainY,'int32');
+  const ys=tf.oneHot(trainYTensor,labels.length);
+  trainYTensor.dispose();
+  const valXs=tf.tensor3d(valX,[valX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+  const valYTensor=tf.tensor1d(valY,'int32');
+  const valYs=tf.oneHot(valYTensor,labels.length);
+  valYTensor.dispose();
+  setLog(`学習開始: ${labels.length}ラベル / 学習${trainX.length}サンプル（左右反転を含む） / 検証${valX.length}サンプル`,'ok');
 
   const model=tf.sequential();
   model.add(tf.layers.lstm({inputShape:[SEQ_LEN,MOTION_FEATURE_DIM],units:128,returnSequences:true}));
@@ -1629,28 +1660,34 @@ async function runTraining(data){
   model.add(tf.layers.dense({units:labels.length,activation:'softmax'}));
   model.compile({optimizer:tf.train.adam(0.001),loss:'categoricalCrossentropy',metrics:['accuracy']});
 
-  const epochs=40;
-  await model.fit(xs,ys,{epochs,batchSize:8,validationSplit:0.2,shuffle:true,callbacks:{
-    onEpochEnd:async(epoch,logs)=>{
-      const pct=Math.round((epoch+1)/epochs*100);
-      document.getElementById('trainProgress').style.width=pct+'%';
-      if((epoch+1)%5===0){
-        const acc=logs.acc ?? logs.accuracy ?? 0;
-        const val=logs.val_acc ?? logs.val_accuracy ?? 0;
-        setLog(`Epoch ${epoch+1}/${epochs} — acc: ${(acc*100).toFixed(1)}% / val: ${(val*100).toFixed(1)}%`,'ok');
+  const epochs=50;
+  try{
+    await model.fit(xs,ys,{epochs,batchSize:Math.min(8,trainX.length),validationData:[valXs,valYs],shuffle:true,callbacks:{
+      onEpochEnd:async(epoch,logs)=>{
+        const pct=Math.round((epoch+1)/epochs*100);
+        document.getElementById('trainProgress').style.width=pct+'%';
+        if((epoch+1)%5===0){
+          const acc=logs.acc ?? logs.accuracy ?? 0;
+          const val=logs.val_acc ?? logs.val_accuracy ?? 0;
+          setLog(`学習 ${epoch+1}/${epochs} — 学習精度 ${(acc*100).toFixed(1)}% / 検証精度 ${(val*100).toFixed(1)}%`,'ok');
+        }
+        await tf.nextFrame();
       }
-      await tf.nextFrame();
-    }
-  }});
-
-  xs.dispose(); ys.dispose();
+    }});
+  }catch(e){
+    model.dispose();
+    throw e;
+  }finally{
+    xs.dispose(); ys.dispose(); valXs.dispose(); valYs.dispose();
+  }
+  if(customModel) customModel.dispose();
   customModel=model;
-  setLog('🎉 動作モデルの学習完了！「認識」タブで一連の動きを判定します','ok');
+  setLog('学習完了！新しい手の特徴量に対応したモデルです。認識タブで試してください。','ok');
   document.getElementById('saveBtn').disabled=false;
   document.getElementById('cmBtn').disabled=false;
   document.getElementById('cloudSaveBtn').disabled=false;
   document.getElementById('modelBadge').className='model-badge custom';
-  document.getElementById('modelBadge').textContent='手話認識';
+  document.getElementById('modelBadge').textContent='新しい学習モデル';
 }
 
 // ===== CONFUSION MATRIX =====
@@ -1758,7 +1795,7 @@ async function showConfusionMatrix(){
 async function saveModel(){
   if(!customModel){alert('まず学習してください');return;}
   await customModel.save('downloads://jsl-model');
-  localStorage.setItem('jsl-labels', JSON.stringify(customLabels));
+  localStorage.setItem('jsl-labels-palm-frame-v3', JSON.stringify(customLabels));
   setLog('ローカルに保存しました', 'ok');
 }
 
@@ -1785,7 +1822,7 @@ async function loadModel(){
           throw new Error('これは動作認識用モデルではありません。今回の版で学習したモデルを選択してください。');
         }
         // Restore labels: try localStorage first, then prompt
-        const labelsRaw = localStorage.getItem('jsl-labels');
+        const labelsRaw = localStorage.getItem('jsl-labels-palm-frame-v3');
         if(labelsRaw){
           customLabels = JSON.parse(labelsRaw);
           setLog(`✓ モデル読み込み完了！ラベル: ${customLabels.join('、')}`, 'ok');
@@ -1795,7 +1832,7 @@ async function loadModel(){
           setLog(`✓ モデル読み込み完了！ラベル: ${customLabels.join('、')}`, 'ok');
         }
         document.getElementById('modelBadge').className='model-badge custom';
-        document.getElementById('modelBadge').textContent='登録した手話';
+        document.getElementById('modelBadge').textContent='カスタムML';
         document.getElementById('saveBtn').disabled=false;
       }catch(err){
         setLog('読み込みエラー: '+err.message, 'err');
@@ -1983,5 +2020,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const p=document.getElementById('motionProgress');if(p)p.style.width='0%';const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'動きを読み取り中 0%':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
+<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionRunId++;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;resetHandSlotTracker('recognition');lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const p=document.getElementById('motionProgress');if(p)p.style.width='0%';const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'動きを読み取り中 0%':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
 </html>
