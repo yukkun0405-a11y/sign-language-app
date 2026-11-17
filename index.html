@@ -452,18 +452,18 @@
         <p>Firebaseから全ユーザーのデータを取得してMLモデルを訓練します</p>
       </div>
       <div class="train-status">
-        <div class="train-log" id="trainLog"><span class="ok">準備中...</span></div>
+        <div class="train-log" id="trainLogCloud"><span class="ok">準備中...</span></div>
         <div class="train-btns">
-          <button class="btn blue flex1" onclick="startTraining()" id="trainBtn" disabled>🚀 ローカルで学習</button>
+          <button class="btn blue flex1" onclick="startTraining('trainBtnCloudLocal')" id="trainBtnCloudLocal" disabled>🚀 ローカルで学習</button>
           <button class="btn amber flex1" onclick="trainFromFirebase()" id="cloudTrainBtn" disabled>🌐 全員データで学習</button>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="btn ghost flex1" onclick="saveModel()" id="saveBtn" disabled>💾 ローカル保存</button>
+          <button class="btn ghost flex1" onclick="saveModel()" id="saveBtnCloudLocal" disabled>💾 ローカル保存</button>
           <button class="btn blue flex1" onclick="autoSaveModel()" id="cloudSaveBtn" disabled>☁ 全員に共有</button>
-          <button class="btn ghost flex1" onclick="loadModel()" id="loadBtn">📂 読み込み</button>
+          <button class="btn ghost flex1" onclick="loadModel()" id="loadBtnCloudLocal">📂 読み込み</button>
         </div>
         <div style="margin-top:8px;">
-          <div class="progress-bar"><div class="progress-fill" id="trainProgress" style="width:0%;background:var(--blue)"></div></div>
+          <div class="progress-bar"><div class="progress-fill" id="trainProgressCloud" style="width:0%;background:var(--blue)"></div></div>
         </div>
       </div>
     </div>
@@ -845,7 +845,9 @@ function addRecognitionFrame(hands){
 async function runMotionPrediction(sequence){
   const runId=recognitionRunId;
   if(!recognitionEnabled || recognitionSessionAccepted || sequence.length!==SEQ_LEN || !customModel || !customLabels.length) return;
-  const input=tf.tensor3d([sequence],[1,SEQ_LEN,MOTION_FEATURE_DIM]);
+  const inputBuffer=new Float32Array(SEQ_LEN*MOTION_FEATURE_DIM);
+  for(let frame=0;frame<SEQ_LEN;frame++) inputBuffer.set(sequence[frame],frame*MOTION_FEATURE_DIM);
+  const input=tf.tensor3d(inputBuffer,[1,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
   try{
     const pred=customModel.predict(input);
     const probs=await pred.data();
@@ -1277,7 +1279,7 @@ async function autoLoadModel(){
         customLabels=JSON.parse(localStorage.getItem('jsl-motion-model-labels-palm-frame-v3')||'[]');
         document.getElementById('modelBadge').className='model-badge custom';
         document.getElementById('modelBadge').textContent='クラウドML（キャッシュ）';
-        document.getElementById('saveBtn').disabled=false;
+        setModelSaveButtonsDisabled(false);
         document.getElementById('cmBtn').disabled=false;
         document.getElementById('cloudSaveBtn').disabled=false;
         banner.style.display='none';
@@ -1313,7 +1315,7 @@ async function autoLoadModel(){
     banner.querySelector('.loader').style.display='none';
     document.getElementById('modelBadge').className='model-badge custom';
     document.getElementById('modelBadge').textContent='クラウドML';
-    document.getElementById('saveBtn').disabled=false;
+    setModelSaveButtonsDisabled(false);
     document.getElementById('cmBtn').disabled=false;
     document.getElementById('cloudSaveBtn').disabled=false;
     setTimeout(()=>banner.style.display='none',3000);
@@ -1535,7 +1537,7 @@ async function trainFromFirebase(){
     for(let i=0;i<allLabels.length;i++){
       const label=allLabels[i];
       setLog(`③ 取得中 [${i+1}/${allLabels.length}] 「${label}」: 最大${MAX_PER_LABEL}件`,'');
-      document.getElementById('trainProgress').style.width=((i+1)/allLabels.length*50)+'%';
+      setTrainingProgress(((i+1)/allLabels.length*50));
       // doc IDの全件取得を廃止。label条件＋limitだけで直接必要数を読む。
       const snap=await db.collection('training_data')
         .where('schemaLabel','==',`${FEATURE_SCHEMA_VERSION}__${label}`)
@@ -1565,7 +1567,7 @@ async function trainFromFirebase(){
 }
 function updateTrainBtn(){
   const numLabels=Object.keys(trainingData).filter(k=>(trainingData[k]||[]).length>=5).length;
-  document.getElementById('trainBtn').disabled = numLabels < 2;
+  setTrainingButtonDisabled(numLabels < 2);
   if(numLabels < 2){
     setLog(`学習には2種類以上のラベルが各5サンプル以上必要です (現在: ${numLabels}種類)`, '');
   } else {
@@ -1606,41 +1608,79 @@ function mirrorFlatSequence(flat){
   return Array.from(mirrored);
 }
 
-// Convert stored flat [SEQ_LEN * FEATURE_DIM] samples into [SEQ_LEN][FEATURE_DIM].
-function samplesToTensorData(samples, contextLabel){
-  return samples.map((sample, sampleIndex)=>{
-    const flat=Array.from(sample||[]);
-    if(flat.length!==SEQ_LEN*MOTION_FEATURE_DIM){
-      throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目の長さが不正です（${flat.length} / ${SEQ_LEN*MOTION_FEATURE_DIM}）。新しい形式で録画し直してください。`);
+// Convert stored flat samples into a flat Float32Array. Passing a typed array
+// plus an explicit shape avoids TensorFlow.js nested-array inference differences.
+function samplesToTensorBuffer(samples, contextLabel){
+  if(!Array.isArray(samples) || samples.length===0){
+    throw new Error(`${contextLabel||'データ'}がありません。各ラベルに十分なサンプルがあるか確認してください。`);
+  }
+  const sampleLength=SEQ_LEN*MOTION_FEATURE_DIM;
+  const buffer=new Float32Array(samples.length*sampleLength);
+  for(let sampleIndex=0;sampleIndex<samples.length;sampleIndex++){
+    const sample=samples[sampleIndex];
+    let flat;
+    if(ArrayBuffer.isView(sample)) flat=Array.from(sample);
+    else if(Array.isArray(sample)){
+      // Accept both a flat vector and a 30-frame nested sequence.
+      if(sample.length===SEQ_LEN && Array.isArray(sample[0])) flat=sample.flat();
+      else flat=sample.slice();
+    }else{
+      throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目が配列ではありません。録画し直してください。`);
     }
-    const frames=[];
-    for(let frame=0;frame<SEQ_LEN;frame++){
-      const start=frame*MOTION_FEATURE_DIM;
-      const row=flat.slice(start,start+MOTION_FEATURE_DIM).map(Number);
-      if(row.length!==MOTION_FEATURE_DIM || row.some(v=>!Number.isFinite(v))){
+    if(flat.length!==sampleLength){
+      throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目の長さが不正です（${flat.length} / ${sampleLength}）。新しい形式で録画し直してください。`);
+    }
+    const offset=sampleIndex*sampleLength;
+    for(let i=0;i<sampleLength;i++){
+      const value=Number(flat[i]);
+      if(!Number.isFinite(value)){
         throw new Error(`${contextLabel||'データ'}の${sampleIndex+1}件目に数値でない特徴量があります。録画し直してください。`);
       }
-      frames.push(row);
+      buffer[offset+i]=value;
     }
-    return frames;
-  });
+  }
+  return buffer;
+}
+
+function setTrainingProgress(percent){
+  const value=Math.max(0,Math.min(100,Number(percent)||0));
+  for(const id of ['trainProgress','trainProgressCloud']){
+    const el=document.getElementById(id);
+    if(el) el.style.width=value+'%';
+  }
+}
+
+function setTrainingButtonDisabled(disabled){
+  for(const id of ['trainBtn','trainBtnCloudLocal']){
+    const el=document.getElementById(id);
+    if(el) el.disabled=!!disabled;
+  }
+}
+
+function setModelSaveButtonsDisabled(disabled){
+  for(const id of ['saveBtn','saveBtnCloudLocal']){
+    const el=document.getElementById(id);
+    if(el) el.disabled=!!disabled;
+  }
 }
 
 // ===== TRAINING =====
-async function startTraining(){
+async function startTraining(buttonId='trainBtn'){
   const labels=Object.keys(trainingData).filter(k=>(trainingData[k]||[]).length>=5);
   if(labels.length<2){ alert('2種類以上のラベルが必要です'); return; }
-  const button=document.getElementById('trainBtn');
-  button.disabled=true;
+  const button=document.getElementById(buttonId) || document.getElementById('trainBtn');
+  if(button) button.disabled=true;
   try{ await runTraining(trainingData); }
   catch(e){ console.error(e); setLog('学習エラー: '+e.message,'err'); }
-  finally{ button.disabled=false; updateTrainBtn(); }
+  finally{ if(button) button.disabled=false; updateTrainBtn(); }
 }
 
 async function runTraining(data){
+  setTrainingProgress(0);
   const labels=Object.keys(data).filter(k=>(data[k]||[]).length>=5);
   if(labels.length<2){ setLog('学習には2ラベル以上が必要です（各ラベル5サンプル以上）','err'); return; }
   customLabels=labels;
+  setTrainingProgress(0);
   setLog('手の向きに強い特徴量を準備中...', '');
 
   const trainX=[],trainY=[],valX=[],valY=[];
@@ -1666,14 +1706,26 @@ async function runTraining(data){
   }
   // Shuffle training set while keeping labels aligned.
   for(let i=trainX.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[trainX[i],trainX[j]]=[trainX[j],trainX[i]];[trainY[i],trainY[j]]=[trainY[j],trainY[i]];}
-  const xs=tf.tensor3d(samplesToTensorData(trainX,"学習データ"),[trainX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
-  const trainYTensor=tf.tensor1d(trainY,'int32');
-  const ys=tf.oneHot(trainYTensor,labels.length);
-  trainYTensor.dispose();
-  const valXs=tf.tensor3d(samplesToTensorData(valX,"検証データ"),[valX.length,SEQ_LEN,MOTION_FEATURE_DIM]);
-  const valYTensor=tf.tensor1d(valY,'int32');
-  const valYs=tf.oneHot(valYTensor,labels.length);
-  valYTensor.dispose();
+  if(trainX.length===0 || valX.length===0){
+    throw new Error('学習用または検証用データが空です。各ラベルを10サンプル以上録画してください。');
+  }
+  let xs=null, trainYTensor=null, ys=null, valXs=null, valYTensor=null, valYs=null;
+  try{
+    const trainBuffer=samplesToTensorBuffer(trainX,'学習データ');
+    const valBuffer=samplesToTensorBuffer(valX,'検証データ');
+    xs=tf.tensor3d(trainBuffer,[trainX.length,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
+    trainYTensor=tf.tensor1d(trainY,'int32');
+    ys=tf.oneHot(trainYTensor,labels.length);
+    valXs=tf.tensor3d(valBuffer,[valX.length,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
+    valYTensor=tf.tensor1d(valY,'int32');
+    valYs=tf.oneHot(valYTensor,labels.length);
+  }catch(tensorError){
+    [xs,ys,valXs,valYs].forEach(t=>{if(t)t.dispose();});
+    throw tensorError;
+  }finally{
+    if(trainYTensor) trainYTensor.dispose();
+    if(valYTensor) valYTensor.dispose();
+  }
   setLog(`学習開始: ${labels.length}ラベル / 学習${trainX.length}サンプル（左右反転を含む） / 検証${valX.length}サンプル`,'ok');
 
   const model=tf.sequential();
@@ -1690,7 +1742,7 @@ async function runTraining(data){
     await model.fit(xs,ys,{epochs,batchSize:Math.min(8,trainX.length),validationData:[valXs,valYs],shuffle:true,callbacks:{
       onEpochEnd:async(epoch,logs)=>{
         const pct=Math.round((epoch+1)/epochs*100);
-        document.getElementById('trainProgress').style.width=pct+'%';
+        setTrainingProgress(pct);
         if((epoch+1)%5===0){
           const acc=logs.acc ?? logs.accuracy ?? 0;
           const val=logs.val_acc ?? logs.val_accuracy ?? 0;
@@ -1708,7 +1760,7 @@ async function runTraining(data){
   if(customModel) customModel.dispose();
   customModel=model;
   setLog('学習完了！新しい手の特徴量に対応したモデルです。認識タブで試してください。','ok');
-  document.getElementById('saveBtn').disabled=false;
+  setModelSaveButtonsDisabled(false);
   document.getElementById('cmBtn').disabled=false;
   document.getElementById('cloudSaveBtn').disabled=false;
   document.getElementById('modelBadge').className='model-badge custom';
@@ -1738,7 +1790,7 @@ async function showConfusionMatrix(){
 
     // Run prediction on each sample
     const feats = samples.map(f=>Array.from(f));
-    const xs = tf.tensor3d(samplesToTensorData(feats,"評価データ"),[feats.length,SEQ_LEN,MOTION_FEATURE_DIM]);
+    const xs = tf.tensor3d(samplesToTensorBuffer(feats,'評価データ'),[feats.length,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
     const preds = customModel.predict(xs);
     const predIdxs = await preds.argMax(1).data();
     xs.dispose(); preds.dispose();
@@ -1858,7 +1910,7 @@ async function loadModel(){
         }
         document.getElementById('modelBadge').className='model-badge custom';
         document.getElementById('modelBadge').textContent='カスタムML';
-        document.getElementById('saveBtn').disabled=false;
+        setModelSaveButtonsDisabled(false);
       }catch(err){
         setLog('読み込みエラー: '+err.message, 'err');
       }
@@ -2015,12 +2067,16 @@ function speakText(){
 }
 
 function setLog(msg, cls){
-  const log=document.getElementById('trainLog');
-  const line=document.createElement('div');
-  if(cls) line.className=cls;
-  line.textContent=msg;
-  log.appendChild(line);
-  log.scrollTop=log.scrollHeight;
+  for(const id of ['trainLog','trainLogCloud']){
+    const log=document.getElementById(id);
+    if(!log) continue;
+    if(!log.dataset.initialized){ log.innerHTML=''; log.dataset.initialized='1'; }
+    const line=document.createElement('div');
+    if(cls) line.className=cls;
+    line.textContent=msg;
+    log.appendChild(line);
+    log.scrollTop=log.scrollHeight;
+  }
 }
 
 function switchTab(name){
