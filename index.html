@@ -527,17 +527,47 @@ const FIREBASE_CONFIG = {
 };
 
 let db = null, auth = null, currentUser = null;
+// Shared model loading waits until BOTH Firebase anonymous auth and TensorFlow.js
+// + the local model restore phase are ready. This prevents the startup race where
+// Firestore returns before `tf` is available or overwrites a model mid-restore.
+let appBootReady = false;
+let sharedModelLoadPromise = null;
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
   db      = firebase.firestore();
   auth    = firebase.auth();
-  auth.signInAnonymously().then(async cred => {
+  auth.signInAnonymously().then(cred => {
     currentUser = cred.user;
     updateSyncUI();
-    // Auto-load latest model from Firebase Storage
-    await autoLoadModel();
-  }).catch(e => console.warn('Firebase auth:', e));
-} catch(e) { console.warn('Firebase not configured:', e.message); }
+    void loadSharedModelWhenReady();
+  }).catch(e => {
+    console.warn('Firebase auth:', e);
+    updateSyncUI();
+    showSharedModelMessage('Firebaseに接続できません。端末内のモデルを使用します。', true);
+  });
+} catch(e) {
+  console.warn('Firebase not configured:', e.message);
+}
+
+function loadSharedModelWhenReady(){
+  if(!db || !currentUser || !appBootReady || !tfReady || typeof tf === 'undefined') {
+    return Promise.resolve(false);
+  }
+  if(sharedModelLoadPromise) return sharedModelLoadPromise;
+  sharedModelLoadPromise = autoLoadModel();
+  return sharedModelLoadPromise;
+}
+
+function showSharedModelMessage(message, warning=false){
+  const banner=document.getElementById('modelBanner');
+  const msg=document.getElementById('modelBannerMsg');
+  if(!banner || !msg) return;
+  banner.style.display='flex';
+  banner.classList.toggle('warn', !!warning);
+  msg.textContent=message;
+  const loader=banner.querySelector('.loader');
+  if(loader) loader.style.display=warning ? 'none' : '';
+}
 
 // ===== LABELS =====
 const FINGERSPELL = ['あ','い','う','え','お','か','き','く','け','こ','さ','し','す','せ','そ','た','ち','つ','て','と','な','に','ぬ','ね','の','は','ひ','ふ','へ','ほ','ま','み','む','め','も','や','ゆ','よ','ら','り','る','れ','ろ','わ','を','ん'];
@@ -570,6 +600,9 @@ const SEQ_LEN=30;
 const SINGLE_HAND_FEATURE_DIM=73;
 const MOTION_FEATURE_DIM=SINGLE_HAND_FEATURE_DIM*2;
 const TRAINING_STATS_DOC='palm-frame-v3';
+// Keep the shared Firebase model separate from this device's locally trained model.
+const SHARED_MODEL_CACHE_ID='indexeddb://jsl-shared-motion-palm-frame-v3';
+const SHARED_LABELS_KEY='jsl-shared-motion-model-labels-palm-frame-v3';
 const MOTION_PREDICT_STRIDE=8;
 const MOTION_THRESHOLD=0.72;
 let recogSequence=[];
@@ -622,11 +655,16 @@ function waitLibs(){
 }
 
 async function setupAll(){
+  if(tfReady) return;
   tfReady = true;
   setLog('TensorFlow.js 読み込み完了', 'ok');
   buildLabelGrid();
+  // Restore this device's cached model first. The shared cloud model is loaded
+  // afterwards and takes priority when a newer/shared model exists.
   await restoreLocalTrainedModel();
   await setupHands();
+  appBootReady = true;
+  void loadSharedModelWhenReady();
 }
 
 // A locally trained model used to exist only in memory. Restore the last
@@ -1362,74 +1400,152 @@ const MODEL_DOC = 'jsl_model/latest';
 const CHUNK_SIZE = 500000; // Firestoreの1ドキュメント上限に合わせて分割
 
 async function autoLoadModel(){
-  if(!db) return;
+  if(!db || !currentUser || !tfReady || typeof tf === 'undefined') return false;
   const banner=document.getElementById('modelBanner');
   const msg=document.getElementById('modelBannerMsg');
-  banner.style.display='flex';
-  msg.textContent='モデルを確認中...';
-  try{
-    // まずFirestoreは「最新版かどうか」の1回だけ確認。
-    // 同じモデルならブラウザのIndexedDBキャッシュを使い、重みチャンクを再取得しない。
-    const metaDoc=await db.collection('jsl_model').doc('latest').get();
-    if(!metaDoc.exists){ banner.style.display='none'; return; }
-    const meta=metaDoc.data();
-    if(meta.modelVersion!==MOTION_MODEL_VERSION || meta.sequenceLength!==SEQ_LEN || meta.featureDim!==MOTION_FEATURE_DIM){
-      banner.style.display='none'; return;
+  showSharedModelMessage('共有モデルを確認中...');
+
+  const isCompatible=(model, labels)=>{
+    const shape=model?.inputs?.[0]?.shape || [];
+    const outputShape=model?.outputs?.[0]?.shape || [];
+    return shape.length===3 && shape[1]===SEQ_LEN && shape[2]===MOTION_FEATURE_DIM &&
+      Array.isArray(labels) && labels.length>=2 && labels.every(x=>typeof x==='string' && x.length>0) &&
+      (!outputShape.length || outputShape[outputShape.length-1]===labels.length);
+  };
+  const activateModel=(model, labels, badgeText)=>{
+    if(customModel && customModel!==model) {
+      try{ customModel.dispose(); }catch(disposeError){ console.warn('old model dispose:',disposeError); }
     }
-    const remoteVersion=String(meta.savedAt||meta.modelHash||'');
-    const cachedVersion=localStorage.getItem('jsl-motion-model-version');
-    if(cachedVersion===remoteVersion){
+    customModel=model;
+    customLabels=labels;
+    const badge=document.getElementById('modelBadge');
+    if(badge){ badge.className='model-badge custom'; badge.textContent=badgeText; }
+    setModelSaveButtonsDisabled(false);
+    const cmBtn=document.getElementById('cmBtn'); if(cmBtn) cmBtn.disabled=false;
+    const cloudSaveBtn=document.getElementById('cloudSaveBtn'); if(cloudSaveBtn) cloudSaveBtn.disabled=false;
+  };
+
+  try{
+    // One metadata read determines whether this device needs to download weights.
+    const metaDoc=await db.collection('jsl_model').doc('latest').get();
+    if(!metaDoc.exists){
       try{
-        customModel=await tf.loadLayersModel('indexeddb://jsl-motion-palm-frame-v3');
-        customLabels=JSON.parse(localStorage.getItem('jsl-motion-model-labels-palm-frame-v3')||'[]');
-        document.getElementById('modelBadge').className='model-badge custom';
-        document.getElementById('modelBadge').textContent='クラウドML（キャッシュ）';
-        setModelSaveButtonsDisabled(false);
-        document.getElementById('cmBtn').disabled=false;
-        document.getElementById('cloudSaveBtn').disabled=false;
-        banner.style.display='none';
-        return;
-      }catch(cacheErr){ console.warn('model cache miss:',cacheErr.message); }
+        const cachedShared=await tf.loadLayersModel(SHARED_MODEL_CACHE_ID);
+        const cachedSharedLabels=JSON.parse(localStorage.getItem(SHARED_LABELS_KEY)||'[]');
+        if(isCompatible(cachedShared,cachedSharedLabels)){
+          activateModel(cachedShared,cachedSharedLabels,'共有モデル（端末保存）');
+          if(banner) banner.style.display='none';
+          return true;
+        }
+        cachedShared.dispose();
+      }catch(sharedCacheError){
+        console.info('No cached shared model:',sharedCacheError?.message || sharedCacheError);
+      }
+      if(customModel && customLabels.length){
+        if(banner) banner.style.display='none';
+        return true; // Keep this device's own model as a fallback.
+      }
+      showSharedModelMessage('共有モデルはまだ登録されていません。学習後に「全員に共有」を実行してください。', true);
+      return false;
     }
 
-    customLabels=meta.labels||[];
-    const numChunks=meta.numChunks||1;
-    msg.textContent=`新しいモデルを取得中... (0/${numChunks})`;
+    const meta=metaDoc.data() || {};
+    if(meta.modelVersion!==MOTION_MODEL_VERSION || meta.sequenceLength!==SEQ_LEN || meta.featureDim!==MOTION_FEATURE_DIM){
+      showSharedModelMessage('共有モデルの形式がこのアプリと異なります。アプリとモデルを同じ版に更新してください。', true);
+      return false;
+    }
+    if(!Array.isArray(meta.labels) || meta.labels.length<2){
+      throw new Error('共有モデルにラベル情報がありません');
+    }
+
+    const remoteVersion=String(meta.savedAt || meta.modelHash || '');
+    const cachedVersion=localStorage.getItem('jsl-motion-model-version');
+
+    // If the current in-memory model is the model cached for this exact cloud
+    // version, keep it. Otherwise try IndexedDB before downloading Firestore chunks.
+    if(cachedVersion===remoteVersion){
+      try{
+        const cachedModel=await tf.loadLayersModel(SHARED_MODEL_CACHE_ID);
+        const cachedLabels=JSON.parse(localStorage.getItem(SHARED_LABELS_KEY) || '[]');
+        if(isCompatible(cachedModel,cachedLabels) && JSON.stringify(cachedLabels)===JSON.stringify(meta.labels)){
+          activateModel(cachedModel,cachedLabels,'共有モデル');
+          if(banner) banner.style.display='none';
+          return true;
+        }
+        cachedModel.dispose();
+      }catch(cacheError){
+        console.info('Shared model cache unavailable; downloading latest weights:',cacheError?.message || cacheError);
+      }
+    }
+
+    const numChunks=Number(meta.numChunks);
+    if(!Number.isInteger(numChunks) || numChunks<1 || numChunks>100){
+      throw new Error('共有モデルのチャンク情報が不正です');
+    }
+    showSharedModelMessage(`共有モデルをダウンロード中... (0/${numChunks})`);
     const chunks=[];
     for(let i=0;i<numChunks;i++){
       const chunkDoc=await db.collection('jsl_model').doc(`chunk_${i}`).get();
-      if(!chunkDoc.exists) throw new Error(`モデルチャンク ${i} がありません`);
+      if(!chunkDoc.exists || typeof chunkDoc.data()?.data!=='string'){
+        throw new Error(`共有モデルのデータ ${i+1}/${numChunks} が見つかりません`);
+      }
       chunks.push(chunkDoc.data().data);
-      msg.textContent=`新しいモデルを取得中... (${i+1}/${numChunks})`;
+      if(msg) msg.textContent=`共有モデルをダウンロード中... (${i+1}/${numChunks})`;
     }
-    const combined=chunks.join('');
-    const binary=atob(combined);
+
+    const binary=atob(chunks.join(''));
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-    customModel=await tf.loadLayersModel(tf.io.fromMemory(meta.modelTopology,meta.weightSpecs,bytes.buffer));
+    const loadedModel=await tf.loadLayersModel(tf.io.fromMemory(
+      meta.modelTopology, meta.weightSpecs, bytes.buffer
+    ));
+    if(!isCompatible(loadedModel,meta.labels)){
+      loadedModel.dispose();
+      throw new Error('共有モデルの入力サイズまたはラベル数が一致しません');
+    }
 
-    // 次回以降はFirestoreの重みチャンクを読まない。
-    await customModel.save('indexeddb://jsl-motion-palm-frame-v3');
-    localStorage.setItem('jsl-motion-model-version',remoteVersion);
-    localStorage.setItem('jsl-motion-model-labels-palm-frame-v3',JSON.stringify(customLabels));
+    activateModel(loadedModel,meta.labels,'共有モデル');
+    try{
+      await customModel.save(SHARED_MODEL_CACHE_ID);
+      localStorage.setItem('jsl-motion-model-version',remoteVersion);
+      localStorage.setItem(SHARED_LABELS_KEY,JSON.stringify(customLabels));
+    }catch(cacheSaveError){
+      console.warn('Shared model local cache save failed:',cacheSaveError);
+      // The shared model is already active in memory; cache failure is non-fatal.
+    }
 
-    msg.textContent=`✓ モデル読み込み完了！(${customLabels.length}ラベル)`;
-    banner.style.background='rgba(0,229,176,0.1)';
-    banner.style.borderColor='rgba(0,229,176,0.3)';
-    banner.style.color='var(--teal)';
-    banner.querySelector('.loader').style.display='none';
-    document.getElementById('modelBadge').className='model-badge custom';
-    document.getElementById('modelBadge').textContent='クラウドML';
-    setModelSaveButtonsDisabled(false);
-    document.getElementById('cmBtn').disabled=false;
-    document.getElementById('cloudSaveBtn').disabled=false;
-    setTimeout(()=>banner.style.display='none',3000);
+    showSharedModelMessage(`✓ 共有モデルを読み込みました（${customLabels.length}ラベル）`);
+    if(banner){
+      banner.style.background='rgba(0,229,176,0.1)';
+      banner.style.borderColor='rgba(0,229,176,0.3)';
+      banner.style.color='var(--teal)';
+      const loader=banner.querySelector('.loader'); if(loader) loader.style.display='none';
+      setTimeout(()=>{ if(banner) banner.style.display='none'; },3500);
+    }
+    setLog(`共有モデルを読み込みました（${customLabels.length}ラベル）`,'ok');
+    return true;
   }catch(e){
-    banner.style.display='none';
-    console.warn('autoLoadModel:',e.message);
+    console.error('autoLoadModel:',e);
+    // If Firestore is temporarily unavailable, try the previously downloaded
+    // shared model from this device before falling back to a local training model.
+    try{
+      const cachedShared=await tf.loadLayersModel(SHARED_MODEL_CACHE_ID);
+      const cachedSharedLabels=JSON.parse(localStorage.getItem(SHARED_LABELS_KEY)||'[]');
+      if(isCompatible(cachedShared,cachedSharedLabels)){
+        activateModel(cachedShared,cachedSharedLabels,'共有モデル（端末保存）');
+        showSharedModelMessage('通信できないため、端末に保存された共有モデルを使用しています。',true);
+        setLog('端末に保存された共有モデルを読み込みました。','ok');
+        return true;
+      }
+      cachedShared.dispose();
+    }catch(cacheFallbackError){
+      console.info('No usable offline shared-model cache:',cacheFallbackError?.message || cacheFallbackError);
+    }
+    showSharedModelMessage(`共有モデルを読み込めませんでした：${e?.message || e}`,true);
+    setLog('共有モデル読み込みエラー: '+(e?.message || e),'err');
+    return false;
   }
 }
-
 async function autoSaveModel(){
   if(!db||!customModel){ setLog('Firebaseが未接続かモデルがありません','err'); return; }
   const btn=document.getElementById('cloudSaveBtn');
@@ -1459,10 +1575,12 @@ async function autoSaveModel(){
     for(let i=0;i<chunks.length;i++) batch.set(db.collection('jsl_model').doc(`chunk_${i}`),{data:chunks[i]});
     await batch.commit();
 
-    // 保存直後はローカルキャッシュも更新。
+    // Keep this device's working model and a separate, versioned shared-model cache.
     await customModel.save('indexeddb://jsl-motion-palm-frame-v3');
+    await customModel.save(SHARED_MODEL_CACHE_ID);
     localStorage.setItem('jsl-motion-model-version',version);
     localStorage.setItem('jsl-motion-model-labels-palm-frame-v3',JSON.stringify(customLabels));
+    localStorage.setItem(SHARED_LABELS_KEY,JSON.stringify(customLabels));
     setLog(`✓ Firestoreに保存完了！(${customLabels.length}ラベル / ${chunks.length}チャンク)`,'ok');
     setLog('以後は各端末のキャッシュを優先するため、読み取りを大幅に節約します。','ok');
     btn.textContent='✓ 共有済み';
@@ -2240,7 +2358,7 @@ if ('serviceWorker' in navigator) {
     if(!recognitionEnabled) s.textContent='認識を停止しました';
     else if(!cameraOn) s.textContent='先にカメラを起動してください';
     else if(!handsReady) s.textContent='手の検出エンジンを準備中です';
-    else if(!customModel || !customLabels.length) s.textContent='手は検出できますが、学習済みモデルがありません。学習後にモデルを保存してください';
+    else if(!customModel || !customLabels.length) s.textContent='手は検出できます。共有モデルの読み込み完了後に認識できます（未登録の場合は学習が必要です）';
     else s.textContent='動きを読み取り中 0%';
   }
   setRecognitionUI();
