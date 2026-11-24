@@ -595,6 +595,10 @@ const handSlotTrackers={
 let trainSequence=[];
 let prevWristForTraining={left:null,right:null};
 let handsReady=false, tfReady=false, handsModel=null;
+// MediaPipe Hands uses one graph for both camera tabs. Keep sends sequential and
+// remember which video produced the callback so landmarks are drawn on the right canvas.
+let mpSendInFlight=false, mpActiveSource='recognition', mpSendErrorCount=0;
+let mpRecognitionFrames=0, mpRecognitionDetectedFrames=0, predictionInFlight=false;
 let customModel=null, customLabels=[];
 let isRecording=false, selectedLabel=null;
 let trainingData={};
@@ -620,25 +624,63 @@ function waitLibs(){
 async function setupAll(){
   tfReady = true;
   setLog('TensorFlow.js 読み込み完了', 'ok');
-  setupHands();
   buildLabelGrid();
+  await restoreLocalTrainedModel();
+  await setupHands();
 }
 
-function setupHands(){
-  handsModel = new Hands({
-    locateFile: f=>`https://unpkg.com/@mediapipe/hands@0.4.1646424915/${f}`
-  });
-  handsModel.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.5});
-  handsModel.onResults(onHandResults);
-  handsModel.initialize().then(()=>{
+// A locally trained model used to exist only in memory. Restore the last
+// model from IndexedDB so it remains available after a page reload.
+async function restoreLocalTrainedModel(){
+  if(customModel) return;
+  try{
+    const model = await tf.loadLayersModel('indexeddb://jsl-motion-palm-frame-v3');
+    const shape = model.inputs?.[0]?.shape || [];
+    const labels = JSON.parse(localStorage.getItem('jsl-motion-model-labels-palm-frame-v3') || '[]');
+    const outputShape = model.outputs?.[0]?.shape || [];
+    if(shape.length!==3 || shape[1]!==SEQ_LEN || shape[2]!==MOTION_FEATURE_DIM ||
+       !Array.isArray(labels) || !labels.length || (outputShape.length && outputShape[outputShape.length-1]!==labels.length)){
+      model.dispose();
+      setLog('保存済みモデルの形式が現在の認識方式と異なるため、読み込みませんでした。','');
+      return;
+    }
+    customModel=model;
+    customLabels=labels;
+    const badge=document.getElementById('modelBadge');
+    if(badge){ badge.className='model-badge custom'; badge.textContent='保存済みモデル'; }
+    setLog(`保存済みモデルを復元しました（${labels.length}ラベル）`,'ok');
+    setModelSaveButtonsDisabled(false);
+  }catch(e){
+    // No cached model is normal on a first visit.
+    console.info('No local trained model to restore:', e?.message || e);
+  }
+}
+
+async function setupHands(){
+  if(handsReady && handsModel) return;
+  try{
+    handsReady=false;
+    handsModel = new Hands({
+      locateFile: f=>`https://unpkg.com/@mediapipe/hands@0.4.1646424915/${f}`
+    });
+    handsModel.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.5});
+    handsModel.onResults(onHandResults);
+    await handsModel.initialize();
     handsReady = true;
     document.getElementById('loadingBanner').classList.add('hide');
     setLog('MediaPipe Hands 準備完了', 'ok');
     setLog('手のひらを基準に座標を整えて認識します。指文字・両手の手話とも、新しく録画して学習してください。', '');
-    // Check Firestore rules include jsl_model
     if(db) setLog('💡 Firestoreルールに jsl_model コレクションを追加してください（セットアップガイド参照）', '');
     updateTrainBtn();
-  });
+  }catch(e){
+    handsReady=false;
+    console.error('MediaPipe Hands initialization failed:',e);
+    const banner=document.getElementById('loadingBanner');
+    const msg=document.getElementById('loadingMsg');
+    if(banner) banner.classList.remove('hide');
+    if(msg) msg.textContent='手の検出エンジンを起動できませんでした。通信環境を確認してページを再読み込みしてください。';
+    setLog('MediaPipe初期化エラー: '+(e?.message||e),'err');
+  }
 }
 
 // ===== MEDIAPIPE RESULT =====
@@ -697,7 +739,7 @@ function getTwoHands(results, source='recognition'){
 }
 
 function onHandResults(results){
-  const isTrainFrame = trainCameraOn && !cameraOn;
+  const isTrainFrame = mpActiveSource === 'training';
   const targetCanvas = isTrainFrame ? trainCanvas : canvas;
   const targetCtx = isTrainFrame ? trainCtx : ctx;
   const targetVideo = isTrainFrame ? trainVideo : video;
@@ -716,24 +758,40 @@ function onHandResults(results){
   if(twoHands.left) drawHandOnCtx(twoHands.left,targetCtx,targetCanvas.width,targetCanvas.height,'left');
   if(twoHands.right) drawHandOnCtx(twoHands.right,targetCtx,targetCanvas.width,targetCanvas.height,'right');
 
-  if(!hasAny){
-    currentLandmarks=[];
-    if(cameraOn){
-      noHandFrames++;
-      if(noHandFrames>=8){
-        recogSequence=[];
-        recogFrameCounter=0;
-        prevWristForRecognition={left:null,right:null};
+  if(!isTrainFrame){
+    mpRecognitionFrames++;
+    if(hasAny) mpRecognitionDetectedFrames++;
+    if(!hasAny){
+      currentLandmarks=[];
+      if(cameraOn){
+        noHandFrames++;
+        if(noHandFrames>=8){
+          recogSequence=[];
+          recogFrameCounter=0;
+          prevWristForRecognition={left:null,right:null};
+          const progress=document.getElementById('motionProgress');
+          if(progress) progress.style.width='0%';
+        }
+        const status=document.getElementById('motionStatus');
+        if(status){
+          status.textContent = recognitionEnabled
+            ? '手を検出できません。手全体をカメラの中央に映してください'
+            : 'カメラは動作中です。手を映すと骨格を表示します';
+        }
       }
+      return;
     }
-    return;
   }
 
-  if(cameraOn){
+  if(!isTrainFrame && cameraOn){
     noHandFrames=0;
+    if(!recognitionEnabled){
+      const status=document.getElementById('motionStatus');
+      if(status) status.textContent='手を検出しました。認識開始を押してください';
+    }
     addRecognitionFrame(twoHands);
   }
-  if(isRecording && selectedLabel && isTrainFrame){
+  if(isTrainFrame && trainCameraOn && isRecording && selectedLabel){
     captureFrame(twoHands);
   }
 }
@@ -833,49 +891,72 @@ function addRecognitionFrame(hands){
   if(el) el.style.width=progress+'%';
   const status=document.getElementById('motionStatus');
   if(status){
-    if(recogSequence.length<SEQ_LEN) status.textContent=`動きを読み取り中 ${progress}%（${handCount}手検出）`;
-    else if(!customModel || !customLabels.length) status.textContent='読み取り完了・学習済みモデルを登録してください';
-    else status.textContent=`読み取り完了・判定中（${handCount}手検出）`;
+    if(recogSequence.length<SEQ_LEN){
+      status.textContent=`動きを読み取り中 ${progress}%（${handCount}手検出）`;
+    }else if(!customModel || !customLabels.length){
+      status.textContent='手は検出中ですが、学習済みモデルがありません。学習後に「保存」するか、共有モデルを読み込んでください';
+    }else{
+      status.textContent=`読み取り完了・判定中（${handCount}手検出）`;
+    }
   }
-  // All classes, including finger spelling, use the newly trained model.
+  // All classes, including finger spelling, use the trained model.
   if(recogSequence.length<SEQ_LEN || !customModel || !customLabels.length) return;
   if(recogFrameCounter%MOTION_PREDICT_STRIDE===0) runMotionPrediction(recogSequence.slice());
 }
 
 async function runMotionPrediction(sequence){
   const runId=recognitionRunId;
-  if(!recognitionEnabled || recognitionSessionAccepted || sequence.length!==SEQ_LEN || !customModel || !customLabels.length) return;
-  const inputBuffer=new Float32Array(SEQ_LEN*MOTION_FEATURE_DIM);
-  for(let frame=0;frame<SEQ_LEN;frame++) inputBuffer.set(sequence[frame],frame*MOTION_FEATURE_DIM);
-  const input=tf.tensor3d(inputBuffer,[1,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
+  if(!recognitionEnabled || recognitionSessionAccepted || predictionInFlight || sequence.length!==SEQ_LEN || !customModel || !customLabels.length) return;
+  const shape=customModel.inputs?.[0]?.shape || [];
+  if(shape.length!==3 || shape[1]!==SEQ_LEN || shape[2]!==MOTION_FEATURE_DIM){
+    const status=document.getElementById('motionStatus');
+    if(status) status.textContent='学習済みモデルの形式が現在の認識方式と一致しません。再学習してください';
+    return;
+  }
+  predictionInFlight=true;
+  let input=null, pred=null;
   try{
-    const pred=customModel.predict(input);
+    const inputBuffer=new Float32Array(SEQ_LEN*MOTION_FEATURE_DIM);
+    for(let frame=0;frame<SEQ_LEN;frame++){
+      if(!sequence[frame] || sequence[frame].length!==MOTION_FEATURE_DIM){
+        throw new Error(`入力データの形式が不正です（${frame+1}フレーム目）`);
+      }
+      inputBuffer.set(sequence[frame],frame*MOTION_FEATURE_DIM);
+    }
+    input=tf.tensor3d(inputBuffer,[1,SEQ_LEN,MOTION_FEATURE_DIM],'float32');
+    pred=customModel.predict(input);
     const probs=await pred.data();
-    pred.dispose();
     if(!recognitionEnabled || recognitionSessionAccepted || runId!==recognitionRunId) return;
-    const indexed=Array.from(probs).map((p,i)=>({p,l:customLabels[i]})).sort((a,b)=>b.p-a.p);
+    const indexed=Array.from(probs).slice(0,customLabels.length)
+      .map((p,i)=>({p,l:customLabels[i]})).sort((a,b)=>b.p-a.p);
     const top=indexed[0];
     if(top){
       showTopPreds(indexed.slice(0,3));
-      document.getElementById('modelBadge').className='model-badge custom';
-      document.getElementById('modelBadge').textContent='学習済み';
+      const badge=document.getElementById('modelBadge');
+      if(badge){ badge.className='model-badge custom'; badge.textContent='学習済み'; }
+      const status=document.getElementById('motionStatus');
       if(top.p>=MOTION_THRESHOLD){
-        const now=Date.now();
-        // Accept a new sign once; a repeated sign becomes available again after a short reset.
-        if(!recognitionSessionAccepted){
-          recognitionSessionAccepted=true;
-          displayResult(top.l,Math.round(top.p*100));
-          lastAcceptedLabel=top.l;
-          acceptedAt=now;
-          // Keep camera/landmark recognition alive after accepting a result.
-
-        }
+        recognitionSessionAccepted=true;
+        displayResult(top.l,Math.round(top.p*100));
+        lastAcceptedLabel=top.l;
+        acceptedAt=Date.now();
+        if(status) status.textContent=`「${top.l}」を認識しました（${Math.round(top.p*100)}%）`;
+      }else if(status){
+        status.textContent=`候補「${top.l}」 ${Math.round(top.p*100)}%。もう少しはっきり手話を見せてください（基準 ${Math.round(MOTION_THRESHOLD*100)}%）`;
       }
+    }else{
+      const status=document.getElementById('motionStatus');
+      if(status) status.textContent='モデルの予測結果が空でした。学習モデルを確認してください';
     }
   }catch(e){
-    console.warn('motion prediction:',e.message);
+    console.error('motion prediction:',e);
+    const status=document.getElementById('motionStatus');
+    if(status) status.textContent='認識処理エラー: '+(e?.message||String(e));
+    setLog('認識処理エラー: '+(e?.message||String(e)),'err');
   }finally{
-    input.dispose();
+    if(pred && typeof pred.dispose==='function') pred.dispose();
+    if(input) input.dispose();
+    predictionInFlight=false;
   }
 }
 
@@ -978,13 +1059,32 @@ async function switchTrainFacing(f){
 }
 
 let trainFrameIdx=0;
+async function sendMediaPipeFrame(sourceVideo, sourceName){
+  if(!handsReady || !handsModel || mpSendInFlight || !sourceVideo || sourceVideo.readyState < 2) return;
+  mpSendInFlight=true;
+  mpActiveSource=sourceName;
+  try{
+    await handsModel.send({image:sourceVideo});
+    mpSendErrorCount=0;
+  }catch(e){
+    mpSendErrorCount++;
+    console.warn(`MediaPipe send failed (${sourceName}):`,e);
+    const msg=document.getElementById('motionStatus');
+    if(msg && sourceName==='recognition'){
+      msg.textContent='手の検出エンジンでエラーが発生しました。ページを再読み込みしてください。';
+    }
+    if(mpSendErrorCount===1) setLog('手の検出エラー: '+(e?.message||e),'err');
+  }finally{
+    mpSendInFlight=false;
+  }
+}
 function startTrainLoop(){
   if(trainRafId)cancelAnimationFrame(trainRafId);
   async function tick(){
     if(!trainCameraOn)return;
     trainFrameIdx++;
-    if(handsReady && trainFrameIdx%4===0 && trainVideo.readyState===4){
-      try{ await handsModel.send({image:trainVideo}); }catch(e){}
+    if(trainFrameIdx%4===0){
+      await sendMediaPipeFrame(trainVideo,'training');
     }
     trainRafId=requestAnimationFrame(tick);
   }
@@ -995,6 +1095,11 @@ function startTrainLoop(){
 async function startCamera(){
   if(trainCameraOn) stopTrainCamera();
   if(activeStream){ activeStream.getTracks().forEach(t=>t.stop()); activeStream=null; }
+  if(!handsReady){
+    setResultEmpty('手の検出エンジンを準備中です');
+    await setupHands();
+    if(!handsReady){ alert('手の検出エンジンを起動できませんでした。通信環境を確認してページを再読み込みしてください。'); return; }
+  }
   try{
     // iOS Safari PWA needs explicit constraints object
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -1063,8 +1168,8 @@ function startLoop(){
   async function tick(){
     if(!cameraOn)return;
     frameIdx++;
-    if(handsReady && frameIdx%4===0 && video.readyState===4){
-      try{await handsModel.send({image:video});}catch(e){}
+    if(frameIdx%4===0){
+      await sendMediaPipeFrame(video,'recognition');
     }
     rafId=requestAnimationFrame(tick);
   }
@@ -1759,7 +1864,17 @@ async function runTraining(data){
   }
   if(customModel) customModel.dispose();
   customModel=model;
-  setLog('学習完了！新しい手の特徴量に対応したモデルです。認識タブで試してください。','ok');
+  // Keep the just-trained model on this device as well; uploading training
+  // samples alone does not publish a recognizer model.
+  localStorage.setItem('jsl-motion-model-labels-palm-frame-v3',JSON.stringify(customLabels));
+  try{
+    await customModel.save('indexeddb://jsl-motion-palm-frame-v3');
+    setLog('学習モデルをこの端末にも保存しました。次回のページ読み込み後も利用できます。','ok');
+  }catch(saveErr){
+    console.warn('Local model cache save failed:',saveErr);
+    setLog('学習は完了しましたが、端末への自動保存に失敗しました。手動で「保存」を押してください。','');
+  }
+  setLog('学習完了！認識タブで試してください。','ok');
   setModelSaveButtonsDisabled(false);
   document.getElementById('cmBtn').disabled=false;
   document.getElementById('cloudSaveBtn').disabled=false;
@@ -1873,6 +1988,8 @@ async function saveModel(){
   if(!customModel){alert('まず学習してください');return;}
   await customModel.save('downloads://jsl-model');
   localStorage.setItem('jsl-labels-palm-frame-v3', JSON.stringify(customLabels));
+  localStorage.setItem('jsl-motion-model-labels-palm-frame-v3', JSON.stringify(customLabels));
+  try{ await customModel.save('indexeddb://jsl-motion-palm-frame-v3'); }catch(e){ console.warn('IndexedDB save:',e); }
   setLog('ローカルに保存しました', 'ok');
 }
 
@@ -2080,6 +2197,11 @@ function setLog(msg, cls){
 }
 
 function switchTab(name){
+  // Stop the camera belonging to the tab being left. Both tabs share one
+  // MediaPipe graph, so leaving a hidden camera running can route landmarks
+  // to an invisible canvas and starve the recognition camera.
+  if(name==='recognize' && trainCameraOn) stopTrainCamera();
+  if(name==='train' && cameraOn) stopCamera();
   document.querySelectorAll('.tab').forEach((t,i)=>{
     const panels=['recognize','train'];
     t.classList.toggle('active', panels[i]===name);
@@ -2101,5 +2223,27 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){recognitionEnabled=!recognitionEnabled;recognitionRunId++;recognitionSessionAccepted=false;recogSequence=[];recogFrameCounter=0;resetHandSlotTracker('recognition');lastAcceptedLabel=null;acceptedAt=0;staticCandidate=null;staticCandidateFrames=0;lastStaticAccepted=null;staticAcceptedAt=0;prevWristForRecognition={left:null,right:null};const p=document.getElementById('motionProgress');if(p)p.style.width='0%';const s=document.getElementById('motionStatus');if(s)s.textContent=recognitionEnabled?'動きを読み取り中 0%':'認識を停止しました';setRecognitionUI();}setTimeout(setRecognitionUI,0);</script></body>
+<script id="recognition-control-script">let recognitionEnabled=false;let recognitionSessionAccepted=false;function setRecognitionUI(){const b=document.getElementById('recognitionToggle'),t=document.getElementById('recognitionStateText');if(!b||!t)return;if(recognitionEnabled){b.textContent='■ 認識終了';b.classList.add('active');t.textContent='認識中';}else{b.textContent='▶ 認識開始';b.classList.remove('active');t.textContent='認識は停止中';}}function toggleRecognition(){
+  recognitionEnabled=!recognitionEnabled;
+  recognitionRunId++;
+  recognitionSessionAccepted=false;
+  recogSequence=[];
+  recogFrameCounter=0;
+  predictionInFlight=false;
+  resetHandSlotTracker('recognition');
+  lastAcceptedLabel=null; acceptedAt=0;
+  staticCandidate=null; staticCandidateFrames=0; lastStaticAccepted=null; staticAcceptedAt=0;
+  prevWristForRecognition={left:null,right:null};
+  const p=document.getElementById('motionProgress'); if(p) p.style.width='0%';
+  const s=document.getElementById('motionStatus');
+  if(s){
+    if(!recognitionEnabled) s.textContent='認識を停止しました';
+    else if(!cameraOn) s.textContent='先にカメラを起動してください';
+    else if(!handsReady) s.textContent='手の検出エンジンを準備中です';
+    else if(!customModel || !customLabels.length) s.textContent='手は検出できますが、学習済みモデルがありません。学習後にモデルを保存してください';
+    else s.textContent='動きを読み取り中 0%';
+  }
+  setRecognitionUI();
+}
+setTimeout(setRecognitionUI,0);</script></body>
 </html>
